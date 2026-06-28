@@ -21,7 +21,7 @@ export default function AdminOverviewPage() {
     <div className="space-y-5">
       <header className="mb-6">
         <h1 className="text-2xl font-black uppercase tracking-tight text-white">Tableau de bord</h1>
-        <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 mt-1">Pilotage de la plateforme Seer</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 mt-1">Pilotage de la plateforme Nexus</p>
       </header>
 
       {/* Alertes de validation — l'action la plus fréquente de l'admin */}

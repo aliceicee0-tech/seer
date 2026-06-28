@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Point d'entrée Django pour le projet Seer."""
+"""Point d'entrée Django pour le projet Nexus."""
 import os
 import sys
 

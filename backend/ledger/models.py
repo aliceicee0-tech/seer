@@ -1,5 +1,5 @@
 """
-Modèles de comptabilité de Seer.
+Modèles de comptabilité de Nexus.
 
 Principe **double-écriture** : le solde d'un Wallet n'est JAMAIS modifié
 directement. Toute variation passe par une `LedgerEntry` immuable, signée

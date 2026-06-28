@@ -1,4 +1,4 @@
-# Seer 🇲🇬
+# Nexus 🇲🇬
 
 **Plateforme de marchés prédictifs locale pour Madagascar** — Sport, Météo & Réseaux Sociaux.
 Système de **pari mutuel** (cotes dynamiques), flux financiers **manuels** (MVola / Orange Money / Airtel Money) validés par l'administrateur. PWA mobile-first.
@@ -17,7 +17,7 @@ Système de **pari mutuel** (cotes dynamiques), flux financiers **manuels** (MVo
 ## Structure du dépôt
 
 ```
-seer/
+nexus/
 ├── backend/      # API Django (DRF)
 ├── frontend/     # PWA React
 ├── docker-compose.yml   # PostgreSQL + (option) backend
@@ -37,7 +37,7 @@ seer/
 
 ```bash
 docker compose up -d db           # lance un PostgreSQL local
-# ou créez une base PostgreSQL « seer » manuellement
+# ou créez une base PostgreSQL « nexus » manuellement
 ```
 
 ### 3. Backend

@@ -1,5 +1,5 @@
 """
-Service de comptabilité de Seer.
+Service de comptabilité de Nexus.
 
 Point d'entrée UNIQUE pour tout mouvement de solde. Garantit :
 - transaction atomique (rollback complet en cas d'erreur) ;

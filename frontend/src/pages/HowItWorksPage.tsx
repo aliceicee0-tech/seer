@@ -55,7 +55,7 @@ export default function HowItWorksPage() {
           Comment ça marche ?
         </h1>
         <p className="text-lg text-zinc-500 max-w-xl mx-auto leading-relaxed">
-          Seer est une plateforme de marchés de prédiction. Pariez sur des
+          Nexus est une plateforme de marchés de prédiction. Pariez sur des
           événements réels et gagnez si votre prédiction est correcte.
         </p>
       </div>
@@ -128,7 +128,7 @@ export default function HowItWorksPage() {
       {/* Features */}
       <div className="space-y-6">
         <h2 className="text-xl font-bold text-zinc-900 text-center">
-          Pourquoi Seer ?
+          Pourquoi Nexus ?
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {FEATURES.map((f) => {

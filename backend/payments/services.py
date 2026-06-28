@@ -1,5 +1,5 @@
 """
-Services de paiement manuel Seer.
+Services de paiement manuel Nexus.
 
 Toutes les actions d'admin sont atomiques et journalisées via le ledger :
 - approve_deposit  : crédite le wallet du joueur

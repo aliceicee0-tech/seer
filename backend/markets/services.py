@@ -1,5 +1,5 @@
 """
-Services métier des marchés prédictifs Seer.
+Services métier des marchés prédictifs Nexus.
 
 - `place_bet`     : place une mise (débit wallet atomique, MAJ du pool).
 - `resolve_market`: résout un marché et redistribue les gains (pari mutuel).

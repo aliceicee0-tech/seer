@@ -4,7 +4,7 @@ from django.apps import AppConfig
 class CoreConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "core"
-    verbose_name = "Cœur Seer"
+    verbose_name = "Cœur Nexus"
 
     def ready(self):
         # Importe les signaux (création du Wallet à la création d'un User)

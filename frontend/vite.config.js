@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
-// Seer — configuration Vite + PWA
+// Nexus — configuration Vite + PWA
 export default defineConfig({
     plugins: [
         react(),
@@ -9,8 +9,8 @@ export default defineConfig({
             registerType: "autoUpdate",
             includeAssets: ["favicon.svg", "icons/*.png"],
             manifest: {
-                name: "Seer — Marchés prédictifs Madagascar",
-                short_name: "Seer",
+                name: "Nexus — Marchés prédictifs Madagascar",
+                short_name: "Nexus",
                 description: "Plate de marchés prédictifs (Météo & Réseaux sociaux) en Ariary pour Madagascar.",
                 lang: "fr",
                 dir: "ltr",

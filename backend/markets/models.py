@@ -1,5 +1,5 @@
 """
-Modèles de marchés prédictifs Seer.
+Modèles de marchés prédictifs Nexus.
 
 Un `Market` est une question binaire (OUI/NON) avec une source publique de
 résolution, une date de clôture des paris et une date de vérification.

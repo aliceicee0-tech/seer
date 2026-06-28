@@ -121,7 +121,7 @@ export default function DepositPage() {
       <div className="card space-y-3.5 text-xs">
         <h2 className="text-xs font-black uppercase tracking-wider text-zinc-400">2. Effectuez le transfert</h2>
         <p className="text-zinc-400 leading-relaxed">
-          Envoyez votre montant vers le numéro officiel de Seer, puis déclarez
+          Envoyez votre montant vers le numéro officiel de Nexus, puis déclarez
           votre transaction ci-dessous.
         </p>
         <div className="rounded-xl bg-zinc-950 border border-zinc-900 p-4 space-y-2">

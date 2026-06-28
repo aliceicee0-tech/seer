@@ -1,5 +1,5 @@
 """
-Paramètres Django du projet Seer.
+Paramètres Django du projet Nexus.
 
 Lecture des variables via django-environ depuis un fichier .env placé à la
 racine du monorepo (parent de `backend/`) ou via les variables d'environnement.
@@ -196,7 +196,7 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-# --- Réglages métier Seer --------------------------------------------------
+# --- Réglages métier Nexus --------------------------------------------------
 PLATFORM_COMMISSION_RATE = env.float("PLATFORM_COMMISSION_RATE", default=10.0)  # %
 MIN_BET_AMOUNT = env.int("MIN_BET_AMOUNT", default=500)
 
@@ -204,7 +204,7 @@ MIN_BET_AMOUNT = env.int("MIN_BET_AMOUNT", default=500)
 MVOLA_NUMBER = env("MVOLA_NUMBER", default="0340000000")
 ORANGE_MONEY_NUMBER = env("ORANGE_MONEY_NUMBER", default="0320000000")
 AIRTEL_MONEY_NUMBER = env("AIRTEL_MONEY_NUMBER", default="0330000000")
-MOBILE_MONEY_HOLDER = env("MOBILE_MONEY_HOLDER", default="Seer Madagascar")
+MOBILE_MONEY_HOLDER = env("MOBILE_MONEY_HOLDER", default="Nexus Madagascar")
 
 # Choix d'opérateurs Mobile Money
 MOBILE_MONEY_OPERATORS = (

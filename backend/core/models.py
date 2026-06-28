@@ -1,5 +1,5 @@
 """
-Modèle utilisateur central de Seer.
+Modèle utilisateur central de Nexus.
 
 L'authentification se fait par **numéro de téléphone** (utilisé pour Mobile Money),
 complété par un mot de passe. Les numéros sont stockés sous forme normalisée
@@ -26,7 +26,7 @@ def normalize_phone(raw: str) -> str:
 
 
 class User(AbstractUser):
-    """Utilisateur Seer — identifié par son numéro de téléphone."""
+    """Utilisateur Nexus — identifié par son numéro de téléphone."""
 
     # Le `username` Django reste mais n'est plus l'identifiant public.
     username = models.CharField(

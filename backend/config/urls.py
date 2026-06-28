@@ -1,4 +1,4 @@
-"""Racine des URLs du projet Seer."""
+"""Racine des URLs du projet Nexus."""
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
@@ -6,7 +6,7 @@ from django.urls import include, path
 
 def api_root(request):
     return JsonResponse({
-        "name": "Seer API",
+        "name": "Nexus API",
         "version": "1.0",
         "endpoints": [
             "/api/auth/",

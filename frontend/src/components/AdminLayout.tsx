@@ -21,7 +21,7 @@ export default function AdminLayout() {
             <span className="rounded bg-zinc-100 border border-zinc-200 px-1.5 py-0.5 text-[10px] font-mono font-bold text-zinc-650">
               ADMIN
             </span>
-            <span className="text-lg font-extrabold tracking-tight text-zinc-900">Seer</span>
+            <span className="text-lg font-extrabold tracking-tight text-zinc-900">Nexus</span>
           </Link>
 
           {/* Desktop Navigation */}

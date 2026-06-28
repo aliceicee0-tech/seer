@@ -49,7 +49,7 @@ export default function AccountPage() {
       </button>
 
       <p className="pt-4 text-center text-[10px] font-bold uppercase tracking-widest text-zinc-650">
-        Seer v1.0 • Prédictions Madagascar
+        Nexus v1.0 • Prédictions Madagascar
       </p>
     </div>
   );

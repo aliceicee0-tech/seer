@@ -1,5 +1,5 @@
 """
-Modèles de paiements manuels Seer.
+Modèles de paiements manuels Nexus.
 
 Aucun agrégateur de paiement en Phase 1 : les flux reposent sur des transferts
 Mobile Money réels (MVola / Orange Money / Airtel Money) que l'administrateur

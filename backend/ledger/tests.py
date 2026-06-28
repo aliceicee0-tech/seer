@@ -1,4 +1,4 @@
-"""Tests des flux financiers Seer — cœur du système (argent réel).
+"""Tests des flux financiers Nexus — cœur du système (argent réel).
 
 Couvre :
 - Ledger : post_entry, non-négativité, immuabilité, verrou de retrait.
@@ -9,6 +9,7 @@ Couvre :
 """
 from datetime import timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 from django.conf import settings
 from django.test import TestCase
@@ -29,9 +30,10 @@ from payments.services import (
 
 
 def _user(phone: str, name: str = "", balance: Decimal | None = None) -> User:
+    # Mot de passe généré (éphémère) : aucune chaîne en dur, ce n'est pas un secret.
     u = User.objects.create_user(
         username=f"user_{phone}",  # requis par le UserManager par défaut
-        phone=phone, password="pass1234", display_name=name,
+        phone=phone, password=uuid4().hex, display_name=name,
     )
     if balance:
         # Crédit initial via une écriture brute (pour les besoins du test)
