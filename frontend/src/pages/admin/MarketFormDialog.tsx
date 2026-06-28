@@ -1,0 +1,168 @@
+import { useState } from "react";
+import type { Category, Market, MarketFormData } from "../../api/types";
+
+export type MarketFormResult = MarketFormData;
+
+const CATEGORIES: { value: Category; label: string }[] = [
+  { value: "SPORTS", label: "⚽ Sport" },
+  { value: "WEATHER", label: "🌦️ Météo" },
+  { value: "SOCIAL", label: "📱 Réseaux sociaux" },
+  { value: "TRENDING", label: "📈 Tendances" },
+];
+
+/** Convertit une Date ISO en valeur pour <input type="datetime-local">. */
+function toInputDate(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  // datetime-local n'accepte pas le fuseau : on formate en local
+  const off = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - off * 60_000);
+  return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
+}
+
+export default function MarketFormDialog({
+  market, onClose, onSubmit,
+}: {
+  market: Market | null;
+  onClose: () => void;
+  onSubmit: (data: MarketFormResult, id?: number) => void;
+}) {
+  const [form, setForm] = useState<MarketFormData>({
+    question: market?.question ?? "",
+    description: market?.description ?? "",
+    category: market?.category ?? "WEATHER",
+    source_url: market?.source_url ?? "",
+    source_rules: market?.source_rules ?? "",
+    bet_close_at: toInputDate(market?.bet_close_at) ?? "",
+    resolve_at: toInputDate(market?.resolve_at) ?? "",
+    image_url: market?.image_url ?? "",
+    is_featured: market?.is_featured ?? false,
+    status: market?.status ?? "OPEN",
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const set = <K extends keyof MarketFormData>(k: K, v: MarketFormData[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.question.trim()) return setError("La question est obligatoire.");
+    if (!form.source_url.trim()) return setError("Le lien source est obligatoire.");
+    if (!form.bet_close_at || !form.resolve_at)
+      return setError("Les dates de clôture et de vérification sont obligatoires.");
+    setError(null);
+    onSubmit(form, market?.id);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}>
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="max-h-[92vh] w-full max-w-md space-y-3 overflow-y-auto rounded-t-2xl bg-ink-800 p-4 sm:rounded-2xl"
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold">{market ? "Éditer le marché" : "Nouveau marché"}</h2>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-200">✕</button>
+        </div>
+
+        <div>
+          <label className="label">Question binaire *</label>
+          <input
+            className="input"
+            placeholder="La page X atteindra-t-elle 500 000 fans avant le 31/07 ?"
+            value={form.question}
+            onChange={(e) => set("question", e.target.value)}
+          />
+          <p className="mt-1 text-[11px] text-slate-500">
+            Syntaxe : [Quoi] [Seuil] [Où] [Avant quand] ?
+          </p>
+        </div>
+
+        <div>
+          <label className="label">Catégorie</label>
+          <select
+            className="input"
+            value={form.category}
+            onChange={(e) => set("category", e.target.value as Category)}
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="label">Lien source officiel *</label>
+          <input
+            className="input"
+            type="url"
+            placeholder="https://www.facebook.com/…"
+            value={form.source_url}
+            onChange={(e) => set("source_url", e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="label">Règlement / litige</label>
+          <textarea
+            className="input min-h-[72px]"
+            placeholder="Que faire si la source est indisponible ?"
+            value={form.source_rules}
+            onChange={(e) => set("source_rules", e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="label">Description</label>
+          <textarea
+            className="input min-h-[60px]"
+            value={form.description}
+            onChange={(e) => set("description", e.target.value)}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Clôture des paris *</label>
+            <input
+              className="input"
+              type="datetime-local"
+              value={form.bet_close_at}
+              onChange={(e) => set("bet_close_at", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label">Date de vérification *</label>
+            <input
+              className="input"
+              type="datetime-local"
+              value={form.resolve_at}
+              onChange={(e) => set("resolve_at", e.target.value)}
+            />
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="checkbox"
+            checked={form.is_featured}
+            onChange={(e) => set("is_featured", e.target.checked)}
+          />
+          Mettre en avant (featured)
+        </label>
+
+        {error && <p className="rounded-lg bg-rose-500/15 px-3 py-2 text-sm text-rose-300">{error}</p>}
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Annuler</button>
+          <button type="submit" className="btn-primary flex-1">
+            {market ? "Enregistrer" : "Créer"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

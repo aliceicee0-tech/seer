@@ -1,0 +1,23 @@
+# Seer — infra locale de développement
+# Lance uniquement la base de données ; backend & frontend tournent en local.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: seer-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-seer}
+      POSTGRES_USER: ${DB_USER:-seer}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-seer}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-seer} -d ${DB_NAME:-seer}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" width="100" height="100">
+  <!-- Outer thin circle indicating probabilities / foresight -->
+  <circle cx="50" cy="50" r="44" stroke="#ffffff" stroke-width="4" stroke-dasharray="14 8" opacity="0.25" />
+  <!-- Inner geometric vision eye -->
+  <path d="M16 50C28 30 40 22 50 22C60 22 72 30 84 50C72 70 60 78 50 78C40 78 28 70 16 50Z" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Pupil and center core -->
+  <circle cx="50" cy="50" r="14" fill="#ffffff" />
+  <circle cx="50" cy="50" r="20" stroke="#ffffff" stroke-width="3" opacity="0.6" />
+</svg>

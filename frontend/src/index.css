@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-zinc-900 font-sans antialiased;
+  /* Safe area pour les téléphones (encoche) */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Évite le zoom auto sur inputs iOS (font >= 16px) */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-display;
+}
+
+@layer components {
+  .card {
+    background: #ffffff;
+    @apply rounded-xl border border-zinc-200 shadow-card p-5 transition-all duration-300 ease-out hover:border-zinc-300 hover:-translate-y-0.5 hover:shadow-glow;
+  }
+  .btn {
+    @apply font-display inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-xs font-bold tracking-wider uppercase
+           transition-all duration-300 ease-out active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100;
+  }
+  .btn-primary {
+    @apply btn bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-[0_0_25px_rgba(0,75,255,0.15)];
+  }
+  .btn-secondary {
+    @apply btn bg-white hover:bg-zinc-50 text-zinc-800 border border-zinc-200 hover:border-zinc-300 shadow-sm;
+  }
+  .btn-success {
+    @apply btn bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm;
+  }
+  .btn-danger {
+    @apply btn bg-rose-600 hover:bg-rose-700 text-white shadow-sm;
+  }
+  .input {
+    @apply w-full rounded-xl bg-white border border-zinc-200 px-4 py-3
+           text-zinc-900 placeholder-zinc-400 focus:border-blue-500
+           focus:ring-1 focus:ring-blue-500/30 outline-none transition duration-300;
+  }
+  .label {
+    @apply font-display block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2;
+  }
+  .badge {
+    @apply font-display inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider border;
+  }
+}
+
+/* Scrollbar discret */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-200 rounded-full;
+}
