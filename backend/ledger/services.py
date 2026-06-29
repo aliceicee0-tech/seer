@@ -101,8 +101,32 @@ def post_entry(
     return wallet, entry
 
 
+def lock_amount(wallet, amount) -> Wallet:
+    """Réserve `amount` MGA dans le solde bloqué (fonds d'un ordre d'achat en attente).
+
+    Le solde `balance` n'est **pas** modifié (l'argent reste au wallet mais
+    devient indisponible via `available_balance = balance − locked_balance`).
+    Aucune écriture comptable n'est créée : ce n'est pas un flux de sortie,
+    juste un séquestre intra-wallet.
+    """
+    amount = Decimal(amount)
+    with transaction.atomic():
+        wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
+        if wallet.available_balance < amount:
+            raise InsufficientFunds(
+                f"Solde disponible insuffisant ({wallet.available_balance})."
+            )
+        wallet.locked_balance += amount
+        wallet.save()
+    return wallet
+
+
 def unlock_amount(wallet, amount) -> Wallet:
-    """Libère un montant précédement bloqué par un retrait (retrait rejeté/annulé)."""
+    """Libère un montant précédement bloqué (ordre annulé/expiré, retrait rejeté).
+
+    Réduit `locked_balance` sans toucher à `balance` (l'argent redevient
+    disponible). Aucune écriture comptable.
+    """
     with transaction.atomic():
         wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
         wallet.locked_balance = max(
@@ -111,6 +135,43 @@ def unlock_amount(wallet, amount) -> Wallet:
         )
         wallet.save()
     return wallet
+
+
+@transaction.atomic
+def settle_buy_fill(
+    *, wallet, cost, reserve_release, entry_type, reference="", note="",
+    related_id=None, created_by=None,
+) -> tuple[Wallet, "object"]:
+    """Règlement atomique d'une exécution d'ordre d'achat au carnet.
+
+    Combine en UNE transaction verrouillée :
+      - débit réel de `cost` (le prix d'exécution × quantité) sur `balance` ;
+      - libération de `reserve_release` (la part du séquestre limit_price) sur
+        `locked_balance`. Le différentiel (price improvement) reste disponible.
+
+    Crée une écriture `entry_type` signée −cost. Retourne (wallet, entrée).
+    """
+    from .models import LedgerEntry  # évite cycle d'import
+    wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
+    cost = Decimal(cost)
+    reserve_release = Decimal(reserve_release)
+    wallet.balance -= cost
+    wallet.locked_balance = max(
+        Decimal("0"), Decimal(wallet.locked_balance) - reserve_release
+    )
+    wallet.save()
+    entry = LedgerEntry.objects.create(
+        wallet=wallet,
+        type=entry_type,
+        amount=-cost,
+        balance_after=wallet.balance,
+        related_type="order",
+        related_id=related_id,
+        reference=reference,
+        note=note,
+        created_by=created_by,
+    )
+    return wallet, entry
 
 
 def settle_locked_withdraw(wallet, amount, *, created_by=None, reference="") -> LedgerEntry:

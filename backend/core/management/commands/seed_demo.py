@@ -1,9 +1,8 @@
-"""Commande de seed : crée marchés de démo + joueurs + mises de démonstration.
+"""Commande de seed : crée marchés de démo + joueurs + carnet vivant (Polymarket).
 
 Usage :  python manage.py seed_demo
 Idempotente : ne recrée pas ce qui existe déjà.
 """
-import random
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
@@ -12,7 +11,7 @@ from django.utils import timezone
 from core.models import User
 from ledger.services import post_entry
 from markets.models import Category, Market, MarketStatus
-from markets.services import place_bet
+from markets.services import MarketError, mint_pair, place_order
 from payments.services import approve_deposit
 from payments.models import DepositRequest, Operator
 
@@ -38,13 +37,13 @@ TITLES = [
     ("La température à Toliara dépassera-t-elle 38°C avant le 15 juillet ?",
      Category.WEATHER, "http://www.meteomadagascar.mg/temperature"),
     # --- Tendances ---
-    ("Le groupe Facebook « Ankapobeny » franchira-t-elle 200 000 membres avant le 25 juillet ?",
+    ("Le groupe Facebook « Ankapobeny » franchira-t-il 200 000 membres avant le 25 juillet ?",
      Category.TRENDING, "https://www.facebook.com/groups/ankapobeny"),
 ]
 
 
 class Command(BaseCommand):
-    help = "Génère des données de démonstration : joueurs, marchés, mises."
+    help = "Génère des données de démonstration : joueurs, marchés, carnet d'ordres."
 
     def handle(self, *args, **options):
         now = timezone.now()
@@ -74,40 +73,57 @@ class Command(BaseCommand):
             self.stdout.write(f"  Marché {tag} : {q[:50]}...")
 
         # --- Joueur démo ----------------------------------------------------
-        phone = "0341234567"
+        player = self._ensure_player("0341234567", "Joueur Démo", "demo1234",
+                                     credit=Decimal("10000"))
+
+        # --- Market makers de démo : ils mintent puis placent des ordres ----
+        # pour qu'un vrai carnet d'ordres soit visible côté joueur.
+        mm1 = self._ensure_player("0340000099", "Market Maker A", "mm1234",
+                                  credit=Decimal("5000"))
+        mm2 = self._ensure_player("0340000088", "Market Maker B", "mm1234",
+                                  credit=Decimal("5000"))
+
+        nb_orders = 0
+        for m in markets[:3]:
+            try:
+                # Chaque market maker minte 1000 paires (= 1000 YES + 1000 NO)
+                mint_pair(user=mm1, market=m, count=1000)
+                mint_pair(user=mm2, market=m, count=1000)
+                # mm1 vend du YES bon marché, mm2 vend du NO bon marché
+                place_order(user=mm1, market=m, side="SELL", outcome="YES",
+                            order_type="LIMIT", quantity=500, price=Decimal("0.55"))
+                place_order(user=mm2, market=m, side="SELL", outcome="YES",
+                            order_type="LIMIT", quantity=300, price=Decimal("0.60"))
+                place_order(user=mm2, market=m, side="BUY", outcome="YES",
+                            order_type="LIMIT", quantity=400, price=Decimal("0.50"))
+                nb_orders += 3
+            except MarketError as e:
+                self.stdout.write(self.style.WARNING(f"    Ordre ignoré : {e}"))
+
+        self.stdout.write(self.style.SUCCESS(
+            f"  {nb_orders} ordre(s) de marché placé(s) → carnet vivant."
+        ))
+        self.stdout.write(self.style.SUCCESS("\n✅ Seed terminé."))
+
+    # --- Helpers -----------------------------------------------------------
+
+    def _ensure_player(self, phone, name, password, credit=None):
         player, created = User.objects.get_or_create(
             phone=phone,
-            defaults={"display_name": "Joueur Démo", "password": "!invalidplaceholder!"},
+            defaults={"display_name": name, "password": "!invalidplaceholder!"},
         )
         if created:
-            player.set_password("demo1234")
+            player.set_password(password)
             player.save()
-            self.stdout.write(self.style.SUCCESS("  Joueur démo créé : 0341234567 / demo1234"))
-
-        # --- Crédit initial via dépôt approuvé ------------------------------
-        if player.wallet.available_balance == 0:
+            self.stdout.write(self.style.SUCCESS(
+                f"  Joueur créé : {phone} / {password}"
+            ))
+        if credit and player.wallet.available_balance == 0:
             dep = DepositRequest.objects.create(
-                user=player, amount=Decimal("10000"),
+                user=player, amount=credit,
                 operator=Operator.MVOLA, sender_phone=player.phone,
-                operator_ref="SMSDEMO001",
+                operator_ref=f"SMS{phone[-4:]}",
             )
             approve_deposit(deposit=dep, admin_user=player, note="Seed démo")
-            self.stdout.write(f"  Crédit démo de 10 000 MGA versé à {player.phone}")
-
-        # --- Quelques mises aléatoires pour alimenter les pools ------------
-        outcomes = ["YES", "NO"]
-        amounts = [Decimal("500"), Decimal("1000"), Decimal("2000")]
-        nb = 0
-        for m in markets[:3]:
-            for _ in range(3):
-                try:
-                    place_bet(
-                        user=player, market=m,
-                        outcome=random.choice(outcomes),
-                        amount=random.choice(amounts),
-                    )
-                    nb += 1
-                except Exception as e:  # noqa: BLE001
-                    self.stdout.write(self.style.WARNING(f"    Mise ignorée : {e}"))
-        self.stdout.write(self.style.SUCCESS(f"  {nb} mise(s) de démo placée(s)."))
-        self.stdout.write(self.style.SUCCESS("\n✅ Seed terminé."))
+            self.stdout.write(f"  Crédit démo de {credit} MGA versé à {phone}")
+        return player

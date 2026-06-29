@@ -66,9 +66,16 @@ class LedgerEntry(models.Model):
     class Type(models.TextChoices):
         DEPOSIT = "DEPOSIT", _("Dépôt")
         WITHDRAW = "WITHDRAW", _("Retrait")
-        BET_PLACE = "BET_PLACE", _("Mise de pari")
-        BET_WIN = "BET_WIN", _("Gain de pari")
-        BET_REFUND = "BET_REFUND", _("Remboursement de pari")
+        # --- Moteur Polymarket (collatéralisation) ---
+        MINT = "MINT", _("Émission de paires (débit → séquestre)")
+        MERGE = "MERGE", _("Fusion de paires (crédit ← séquestre)")
+        TRADE_BUY = "TRADE_BUY", _("Achat au carnet")
+        TRADE_SELL = "TRADE_SELL", _("Vente au carnet")
+        SETTLE_WIN = "SETTLE_WIN", _("Gain de résolution (1,00 MGA / part)")
+        ORDER_REFUND = "ORDER_REFUND", _("Remboursement d'ordre annulé/expiré")
+        BET_PLACE = "BET_PLACE", _("(Obsolète) Mise de pari")
+        BET_WIN = "BET_WIN", _("(Obsolète) Gain de pari")
+        BET_REFUND = "BET_REFUND", _("(Obsolète) Remboursement de pari")
         ADJUSTMENT = "ADJUSTMENT", _("Ajustement manuel")
 
     wallet = models.ForeignKey(

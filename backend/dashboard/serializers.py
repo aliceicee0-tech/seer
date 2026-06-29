@@ -80,14 +80,14 @@ class AdminUserSerializer(serializers.ModelSerializer):
     balance = serializers.SerializerMethodField()
     available_balance = serializers.SerializerMethodField()
     locked_balance = serializers.SerializerMethodField()
-    bets_count = serializers.SerializerMethodField()
+    positions_count = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = (
             "id", "phone", "display_name", "is_active", "is_staff",
             "balance", "available_balance", "locked_balance",
-            "bets_count", "date_joined",
+            "positions_count", "date_joined",
         )
         read_only_fields = fields
 
@@ -109,8 +109,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
         w = self._wallet(obj)
         return str(w.locked_balance) if w else "0"
 
-    def get_bets_count(self, obj):
-        return obj.bets.count()
+    def get_positions_count(self, obj):
+        from markets.models import Position
+        return obj.positions.filter(quantity__gt=0).count()
 
 
 class AdminLedgerEntrySerializer(serializers.ModelSerializer):

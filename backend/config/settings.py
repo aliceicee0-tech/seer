@@ -200,6 +200,11 @@ SIMPLE_JWT = {
 PLATFORM_COMMISSION_RATE = env.float("PLATFORM_COMMISSION_RATE", default=10.0)  # %
 MIN_BET_AMOUNT = env.int("MIN_BET_AMOUNT", default=500)
 
+# Moteur Polymarket : bornes de prix d'une action (0,01 à 0,99 MGA).
+# Le OUI et le NON s'équilibrent toujours à 1,00 MGA (cahier des charges §2).
+MIN_ORDER_PRICE = env("MIN_ORDER_PRICE", default="0.01")
+MAX_ORDER_PRICE = env("MAX_ORDER_PRICE", default="0.99")
+
 # Numéros Mobile Money affichés aux joueurs pour leurs dépôts
 MVOLA_NUMBER = env("MVOLA_NUMBER", default="0340000000")
 ORANGE_MONEY_NUMBER = env("ORANGE_MONEY_NUMBER", default="0320000000")
