@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
                 </div>
               </div>
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span>{u.bets_count} pari(s) · {dateFr(u.date_joined)}</span>
+                <span>{u.positions_count} position(s) · {dateFr(u.date_joined)}</span>
               </div>
             </div>
           ))}

@@ -1,7 +1,8 @@
 import type {
   AdminDeposit, AdminLedgerEntry, AdminStats, AdminUser, AdminWithdraw,
-  AuthResponse, Bet, DepositRequest, Estimate, LedgerEntry, Market,
-  MobileMoneyInfo, Paginated, WithdrawRequest,
+  AuthResponse, DepositRequest, Estimate, LedgerEntry, Market, MarketPool,
+  MobileMoneyInfo, Order, OrderBook, OrderInput, Paginated, Position,
+  PricePoint, Trade, WithdrawRequest,
 } from "./types";
 
 const BASE = "/api";
@@ -113,23 +114,56 @@ export const api = {
   myLedger: () =>
     request<Paginated<LedgerEntry>>("/me/ledger/", { auth: true }),
 
-  // Marchés
+  // Marchés (moteur Polymarket / CLOB)
   markets: (params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request<Paginated<Market>>(`/markets/${qs ? `?${qs}` : ""}`);
   },
   market: (id: number) => request<Market>(`/markets/${id}/`),
-  estimate: (id: number, outcome: string, amount: string) =>
+  marketPool: (id: number) => request<MarketPool>(`/markets/${id}/pool/`),
+  estimate: (id: number, outcome: string, quantity: number) =>
     request<Estimate>(
-      `/markets/${id}/estimate/?outcome=${outcome}&amount=${amount}`
+      `/markets/${id}/estimate/?outcome=${outcome}&quantity=${quantity}`
     ),
-  placeBet: (id: number, outcome: string, amount: string) =>
-    request<Bet>(`/markets/${id}/place-bet/`, {
+
+  // Émission / fusion de paires (Split / Merge)
+  mint: (id: number, count: number) =>
+    request<MarketPool>(`/markets/${id}/mint/`, {
       method: "POST",
-      body: JSON.stringify({ outcome, amount }),
+      body: JSON.stringify({ count }),
     }),
-  myBets: () => request<Paginated<Bet>>("/markets/my-bets/"),
-  myActiveBets: () => request<Paginated<Bet>>("/markets/my-bets/active/"),
+  merge: (id: number, count: number) =>
+    request<MarketPool>(`/markets/${id}/merge/`, {
+      method: "POST",
+      body: JSON.stringify({ count }),
+    }),
+
+  // Carnet d'ordres
+  orderBook: (id: number) => request<OrderBook[]>(`/markets/${id}/orderbook/`),
+  trades: (id: number) =>
+    request<Paginated<Trade>>(`/markets/${id}/trades/`),
+  priceHistory: (id: number, outcome = "YES", window = "7d") =>
+    request<PricePoint[]>(
+      `/markets/${id}/price-history/?outcome=${outcome}&window=${window}`
+    ),
+
+  // Ordres : placement / annulation / listing
+  placeOrder: (id: number, input: OrderInput) =>
+    request<Order>(`/markets/${id}/orders/`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  cancelOrder: (marketId: number, orderId: number) =>
+    request<Order>(`/markets/${marketId}/orders/${orderId}/`, {
+      method: "DELETE",
+    }),
+
+  // Compte utilisateur
+  myPositions: () => request<Paginated<Position>>("/markets/my-positions/"),
+  myOrders: (status?: string) =>
+    request<Paginated<Order>>(
+      `/markets/my-orders/${status ? `?status=${status}` : ""}`
+    ),
 
   // Paiements
   mobileMoney: () => request<MobileMoneyInfo>("/payments/mobile-money/"),

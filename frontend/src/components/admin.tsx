@@ -11,6 +11,7 @@ const MARKET_TONE: Record<MarketStatus, "neutral" | "yes" | "no" | "warn" | "inf
   RESOLVING: "info",
   RESOLVED: "neutral",
   CANCELLED: "no",
+  FROZEN: "no",
 };
 
 const MARKET_LABEL: Record<MarketStatus, string> = {
@@ -20,6 +21,7 @@ const MARKET_LABEL: Record<MarketStatus, string> = {
   RESOLVING: "Résolution",
   RESOLVED: "Résolu",
   CANCELLED: "Annulé",
+  FROZEN: "Gelé",
 };
 
 export function MarketStatusBadge({ status }: { status: MS }) {

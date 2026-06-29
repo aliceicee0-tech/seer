@@ -1,10 +1,12 @@
-// Types partagés alignés sur les serializers Django.
+// Types partagés alignés sur les serializers Django (moteur Polymarket / CLOB).
 
 export type Category = "WEATHER" | "SOCIAL" | "TRENDING" | "SPORTS";
 export type MarketStatus =
-  | "DRAFT" | "OPEN" | "LOCKED" | "RESOLVING" | "RESOLVED" | "CANCELLED";
+  | "DRAFT" | "OPEN" | "LOCKED" | "RESOLVING" | "RESOLVED" | "CANCELLED" | "FROZEN";
 export type Outcome = "YES" | "NO";
-export type BetStatus = "PLACED" | "WON" | "LOST" | "REFUNDED";
+export type OrderSide = "BUY" | "SELL";
+export type OrderType = "LIMIT" | "MARKET";
+export type OrderStatus = "OPEN" | "PARTIAL" | "FILLED" | "CANCELLED" | "EXPIRED";
 export type Operator = "MVOLA" | "ORANGE" | "AIRTEL";
 export type DepositStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type WithdrawStatus = "PENDING" | "PAID" | "REJECTED";
@@ -28,9 +30,7 @@ export interface Market {
   status: MarketStatus;
   proba_yes: string;
   proba_no: string;
-  pool_total: string;
-  pool_yes: string;
-  pool_no: string;
+  last_price: string | null;   // dernier prix de trade (null si aucun échange)
   bet_close_at: string;
   resolve_at: string;
   image_url?: string;
@@ -42,6 +42,14 @@ export interface Market {
   resolved_at?: string | null;
 }
 
+export interface MarketPool {
+  escrow_balance: string;
+  pairs_created: number;
+  pairs_destroyed: number;
+  pairs_in_circulation: number;
+  invariant_ok: boolean;
+}
+
 export interface Paginated<T> {
   count: number;
   next: string | null;
@@ -49,29 +57,96 @@ export interface Paginated<T> {
   results: T[];
 }
 
-export interface Bet {
+// --------------------------------------------------------------------------
+// Carnet d'ordres (CLOB)
+// --------------------------------------------------------------------------
+
+export interface OrderBookLevel {
+  price: string;
+  quantity: number;
+}
+
+export interface OrderBook {
+  outcome: Outcome;
+  bids: OrderBookLevel[];   // achats en attente (meilleur = +haut)
+  asks: OrderBookLevel[];   // ventes en attente (meilleur = +bas)
+  spread: string | null;
+  last_price: string | null;
+}
+
+export interface Trade {
   id: number;
   market: number;
-  market_question: string;
-  category: Category;
   outcome: Outcome;
-  outcome_label: string;
-  amount: string;
-  payout: string;
-  proba_at_place: string;
-  status: BetStatus;
-  status_label: string;
+  price: string;
+  quantity: number;
+  buyer_phone: string;
+  seller_phone: string;
   created_at: string;
 }
 
+export interface PricePoint {
+  at: string;
+  price: string;
+  quantity: number;
+}
+
+export interface Order {
+  id: number;
+  market: number;
+  market_question: string;
+  side: OrderSide;
+  side_label: string;
+  outcome: Outcome;
+  outcome_label: string;
+  order_type: OrderType;
+  price: string | null;
+  quantity: number;
+  filled_quantity: number;
+  remaining_quantity: number;
+  status: OrderStatus;
+  status_label: string;
+  expires_at?: string | null;
+  created_at: string;
+}
+
+export interface OrderInput {
+  side: OrderSide;
+  outcome: Outcome;
+  order_type: OrderType;
+  price?: string | null;
+  quantity: number;
+  expires_at?: string | null;
+}
+
+// --------------------------------------------------------------------------
+// Positions
+// --------------------------------------------------------------------------
+
+export interface Position {
+  id: number;
+  market: number;
+  market_question: string;
+  market_status: MarketStatus;
+  outcome: Outcome;
+  outcome_label: string;
+  quantity: number;
+  locked_quantity: number;
+  available_quantity: number;
+  avg_buy_price: string;
+  last_price: string | null;
+  current_value: string;
+  pnl: string;
+  updated_at: string;
+}
+
 export interface Estimate {
-  stake: string;
-  estimated_payout: string;
-  estimated_net: string;
-  current_pool_yes: string;
-  current_pool_no: string;
-  current_pool_total: string;
-  commission_rate: string;
+  quantity: string;
+  outcome: Outcome;
+  current_price: string | null;
+  current_cost: string | null;
+  payout_if_win: string;
+  profit_if_win: string | null;
 }
 
 export interface MobileMoneyInfo {
@@ -161,7 +236,7 @@ export interface AdminUser {
   balance: string;
   available_balance: string;
   locked_balance: string;
-  bets_count: number;
+  positions_count: number;
   date_joined: string;
 }
 

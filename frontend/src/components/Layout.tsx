@@ -2,13 +2,13 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../store/auth";
 import { mga } from "../lib/format";
 import { cx } from "../lib/format";
-import { BarChart3, Ticket, Wallet, User, HelpCircle, Search, Globe, CloudSun, Share2, TrendingUp, Trophy } from "lucide-react";
+import { BarChart3, Layers, Wallet, User, HelpCircle, Search, Globe, CloudSun, Share2, TrendingUp, Trophy } from "lucide-react";
 import type { ComponentType } from "react";
 import type { User as AuthUser } from "../api/types";
 
 const NAV = [
   { to: "/", label: "Marchés", icon: BarChart3 },
-  { to: "/bets", label: "Mes paris", icon: Ticket, auth: true },
+  { to: "/bets", label: "Mes positions", icon: Layers, auth: true },
   { to: "/wallet", label: "Wallet", icon: Wallet, auth: true },
   { to: "/account", label: "Compte", icon: User, auth: true },
 ];

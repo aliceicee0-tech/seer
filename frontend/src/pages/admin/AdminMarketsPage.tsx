@@ -92,7 +92,10 @@ export default function AdminMarketsPage() {
 
               <div className="flex items-center justify-between text-xs text-zinc-550 border-t border-zinc-950 pt-2">
                 <span>
-                  Pool : <b className="text-zinc-200 font-bold">{mga(m.pool_total)} MGA</b>
+                  Prix :{" "}
+                  <b className="text-zinc-200 font-bold">
+                    {m.last_price ? `${Math.round(parseFloat(m.last_price) * 100)}¢` : "—"}
+                  </b>
                   {" · "}
                   <span className="text-zinc-400">OUI {m.proba_yes}</span>
                   {" / "}

@@ -1,26 +1,39 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
-import type { Estimate, Market, Outcome } from "../api/types";
+import type {
+  Estimate, Market, MarketPool, OrderBook, OrderInput, OrderSide, OrderType,
+  Outcome,
+} from "../api/types";
 import { useAuth } from "../store/auth";
 import { Badge, ProbabilityBar, Spinner } from "../components/ui";
 import { cx, dateFr, mga, timeLeft } from "../lib/format";
-import { BookOpen, Globe, ShieldAlert, Calendar, ArrowLeft, CheckCircle2 } from "lucide-react";
+import {
+  BookOpen, Globe, ShieldAlert, Calendar, ArrowLeft, CheckCircle2,
+  Layers, ArrowDownUp,
+} from "lucide-react";
 
 export default function MarketDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
   const [m, setM] = useState<Market | null>(null);
+  const [pool, setPool] = useState<MarketPool | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    api
-      .market(Number(id))
-      .then(setM)
+    Promise.all([
+      api.market(Number(id)),
+      api.marketPool(Number(id)).catch(() => null),
+    ])
+      .then(([market, p]) => {
+        setM(market);
+        setPool(p);
+      })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, refreshKey]);
 
   if (loading) return <Spinner />;
   if (!m)
@@ -34,6 +47,7 @@ export default function MarketDetailPage() {
     );
 
   const open = m.status === "OPEN";
+  const onChanged = () => setRefreshKey((k) => k + 1);
 
   return (
     <div className="space-y-4">
@@ -60,11 +74,27 @@ export default function MarketDetailPage() {
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-              <Stat label="Pool total" value={`${mga(m.pool_total)} MGA`} />
-              <Stat label="Clôture des paris" value={timeLeft(m.bet_close_at)} sub={dateFr(m.bet_close_at)} />
-              <Stat label="OUI" value={`${mga(m.pool_yes)} MGA`} tone="yes" />
-              <Stat label="NON" value={`${mga(m.pool_no)} MGA`} tone="no" />
+              <Stat label="Dernier prix" value={m.last_price ? `${Math.round(parseFloat(m.last_price) * 100)}¢` : "—"} sub="1 part = 1,00 MGA à la résolution" />
+              <Stat label="Clôture" value={timeLeft(m.bet_close_at)} sub={dateFr(m.bet_close_at)} />
+              <Stat label="OUI" value={m.last_price ? `${Math.round(parseFloat(m.last_price) * 100)}%` : "50%"} tone="yes" />
+              <Stat label="NON" value={m.last_price ? `${Math.round((1 - parseFloat(m.last_price)) * 100)}%` : "50%"} tone="no" />
             </div>
+
+            {pool && (
+              <div className="mt-3 flex items-center justify-between rounded-xl border border-zinc-150 bg-zinc-50/60 px-4 py-2.5">
+                <span className="text-[9px] font-extrabold uppercase tracking-widest text-zinc-400">
+                  Séquestre collatéral
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="font-display text-xs font-black text-zinc-800">
+                    {mga(pool.escrow_balance)} MGA
+                  </span>
+                  <Badge tone={pool.invariant_ok ? "yes" : "no"}>
+                    {pool.invariant_ok ? "Invariant ✓" : "Anomalie"}
+                  </Badge>
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Règlement & source */}
@@ -107,13 +137,13 @@ export default function MarketDetailPage() {
           </div>
         </div>
 
-        {/* Right Column: Betting Slip (Sticky on Desktop) */}
+        {/* Right Column: Trading Panel (Sticky on Desktop) */}
         <div className="w-full md:w-[360px] md:sticky md:top-20 shrink-0">
           {open && user ? (
-            <BetPanel market={m} onChanged={() => window.location.reload()} />
+            <TradingPanel market={m} onChanged={onChanged} />
           ) : open && !user ? (
             <div className="card text-center py-6 space-y-3">
-              <p className="text-sm text-zinc-500">Connectez-vous pour parier sur ce marché.</p>
+              <p className="text-sm text-zinc-500">Connectez-vous pour échanger sur ce marché.</p>
               <Link to="/login" className="btn bg-blue-600 hover:bg-blue-700 text-white font-bold inline-flex w-full">
                 Se connecter
               </Link>
@@ -129,7 +159,7 @@ export default function MarketDetailPage() {
                   <p className="text-xs text-zinc-450 font-semibold uppercase tracking-wider mt-2">Résolu le {dateFr(m.resolved_at)}</p>
                 </>
               ) : (
-                <p className="font-semibold uppercase tracking-wider text-xs text-zinc-450">Ce marché n'est plus ouvert aux paris.</p>
+                <p className="font-semibold uppercase tracking-wider text-xs text-zinc-450">Ce marché n'est plus ouvert aux échanges.</p>
               )}
             </div>
           )}
@@ -161,9 +191,396 @@ function Stat({
   );
 }
 
-// --- Sous-composants du panneau de pari (extraction pour lisibilité) ---------
+// ==========================================================================
+// Panneau de trading : Trade (Buy/Sell) | Mint/Merge | Carnet
+// ==========================================================================
 
-const QUICK_AMOUNTS = [500, 1000, 5000];
+type PanelTab = "trade" | "amm" | "book";
+
+function TradingPanel({ market, onChanged }: { market: Market; onChanged: () => void }) {
+  const [tab, setTab] = useState<PanelTab>("trade");
+  const [book, setBook] = useState<OrderBook[] | null>(null);
+
+  useEffect(() => {
+    api.orderBook(market.id).then(setBook).catch(() => setBook(null));
+  }, [market.id, tab, onChanged]);
+
+  return (
+    <div className="space-y-3">
+      {/* Onglets */}
+      <div className="grid grid-cols-3 gap-1 rounded-xl bg-zinc-100 border border-zinc-200 p-1">
+        {([
+          { k: "trade", label: "Échanger", icon: ArrowDownUp },
+          { k: "amm", label: "Émettre", icon: Layers },
+        ] as { k: PanelTab; label: string; icon: typeof ArrowDownUp }[]).map((t) => (
+          <button
+            key={t.k}
+            onClick={() => setTab(t.k)}
+            className={cx(
+              "flex items-center justify-center gap-1.5 rounded-lg py-2 text-[10px] font-bold uppercase tracking-wider transition",
+              tab === t.k ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-800"
+            )}
+          >
+            <t.icon className="h-3.5 w-3.5" /> {t.label}
+          </button>
+        ))}
+        <button
+          onClick={() => setTab("book")}
+          className={cx(
+            "flex items-center justify-center gap-1.5 rounded-lg py-2 text-[10px] font-bold uppercase tracking-wider transition",
+            tab === "book" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-800"
+          )}
+        >
+          Carnet
+        </button>
+      </div>
+
+      {tab === "trade" && <TradePanel market={market} onChanged={onChanged} book={book} />}
+      {tab === "amm" && <MintMergePanel market={market} onChanged={onChanged} />}
+      {tab === "book" && <OrderBookView book={book} />}
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Trade : Buy / Sell (Limit / Market)
+// --------------------------------------------------------------------------
+
+function TradePanel({
+  market, onChanged, book,
+}: {
+  market: Market; onChanged: () => void; book: OrderBook[] | null;
+}) {
+  const [outcome, setOutcome] = useState<Outcome>("YES");
+  const [side, setSide] = useState<OrderSide>("BUY");
+  const [orderType, setOrderType] = useState<OrderType>("LIMIT");
+  const [price, setPrice] = useState("");
+  const [quantity, setQuantity] = useState("10");
+  const [estimate, setEstimate] = useState<Estimate | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState("");
+
+  // Estimation indicative (debounce)
+  useEffect(() => {
+    setError("");
+    const t = setTimeout(() => {
+      const q = parseInt(quantity, 10);
+      if (Number.isNaN(q) || q <= 0) {
+        setEstimate(null);
+        return;
+      }
+      api.estimate(market.id, outcome, q).then(setEstimate).catch(() => setEstimate(null));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [outcome, quantity, market.id]);
+
+  // Pré-remplit le prix avec la meilleure offre du carnet au changement d'onglet outcome
+  useEffect(() => {
+    if (orderType !== "LIMIT" || !book) return;
+    const ob = book.find((b) => b.outcome === outcome);
+    if (!ob) return;
+    if (side === "BUY" && ob.asks[0]) setPrice(ob.asks[0].price);
+    if (side === "SELL" && ob.bids[0]) setPrice(ob.bids[0].price);
+  }, [outcome, side, book, orderType]);
+
+  async function submit() {
+    setError("");
+    setSubmitting(true);
+    try {
+      const input: OrderInput = {
+        side, outcome, order_type: orderType, quantity: parseInt(quantity, 10),
+      };
+      if (orderType === "LIMIT") input.price = price;
+      await api.placeOrder(market.id, input);
+      setDone(
+        `${side === "BUY" ? "Achat" : "Vente"} de ${quantity} ${outcome === "YES" ? "OUI" : "NON"} placé.`
+      );
+      setTimeout(onChanged, 1100);
+    } catch (e) {
+      setError(humanize(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (done)
+    return <SuccessCard title="Ordre placé" message={done} />;
+
+  const qty = parseInt(quantity || "0", 10) || 0;
+  const cost =
+    orderType === "LIMIT" && price
+      ? qty * parseFloat(price)
+      : estimate?.current_cost
+        ? parseFloat(estimate.current_cost)
+        : null;
+
+  return (
+    <div className="card space-y-4">
+      {/* Sélecteur OUI/NON */}
+      <OutcomeButtons market={market} value={outcome} onChange={setOutcome} />
+
+      {/* Buy / Sell */}
+      <div className="grid grid-cols-2 gap-2 rounded-xl bg-zinc-100 border border-zinc-200 p-1">
+        {(["BUY", "SELL"] as OrderSide[]).map((s) => (
+          <button
+            key={s}
+            onClick={() => setSide(s)}
+            className={cx(
+              "rounded-lg py-2.5 text-[10px] font-bold uppercase tracking-wider transition",
+              side === s
+                ? s === "BUY"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "bg-rose-500 text-white shadow-sm"
+                : "text-zinc-500 hover:text-zinc-800"
+            )}
+          >
+            {s === "BUY" ? "Acheter" : "Vendre"}
+          </button>
+        ))}
+      </div>
+
+      {/* Limit / Market */}
+      <div className="grid grid-cols-2 gap-2">
+        {(["LIMIT", "MARKET"] as OrderType[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setOrderType(t)}
+            className={cx(
+              "rounded-lg border py-2 text-[10px] font-bold uppercase tracking-widest transition",
+              orderType === t
+                ? "border-zinc-800 bg-zinc-800 text-white"
+                : "border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50"
+            )}
+          >
+            {t === "LIMIT" ? "Limite" : "Au marché"}
+          </button>
+        ))}
+      </div>
+
+      {orderType === "LIMIT" && (
+        <PriceInput value={price} onChange={setPrice} />
+      )}
+      <QuantityInput value={quantity} onChange={setQuantity} />
+
+      {/* Récap coût */}
+      {cost !== null && (
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 space-y-1.5">
+          {orderType === "LIMIT" && (
+            <div className="flex justify-between">
+              <span>Prix unitaire</span>
+              <span className="font-extrabold text-zinc-700 font-display">
+                {Math.round(parseFloat(price) * 100)}¢
+              </span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span>Coût {side === "BUY" ? "(déboursé)" : "(reçu)"}</span>
+            <span className={cx("font-extrabold font-display", side === "BUY" ? "text-blue-600" : "text-emerald-600")}>
+              {side === "BUY" ? "−" : "+"}{mga(String(cost))} MGA
+            </span>
+          </div>
+          {side === "BUY" && estimate && (
+            <div className="flex justify-between text-[10px] text-zinc-450">
+              <span>Si résolu {outcome === "YES" ? "OUI" : "NON"}</span>
+              <span className="font-bold text-emerald-600 font-display">
+                +{mga(estimate.payout_if_win)} MGA
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50/50 px-3.5 py-2.5 text-xs font-semibold text-rose-600">
+          {error}
+        </div>
+      )}
+
+      <button
+        onClick={submit}
+        disabled={submitting}
+        className={cx(
+          "btn w-full",
+          side === "BUY" ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-rose-500 hover:bg-rose-600 text-white"
+        )}
+      >
+        {submitting
+          ? "Traitement…"
+          : `${side === "BUY" ? "Acheter" : "Vendre"} ${qty} ${outcome === "YES" ? "OUI" : "NON"}`}
+      </button>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Mint / Merge (Split / Merge — collatéralisation)
+// --------------------------------------------------------------------------
+
+function MintMergePanel({ market, onChanged }: { market: Market; onChanged: () => void }) {
+  const [mode, setMode] = useState<"mint" | "merge">("mint");
+  const [count, setCount] = useState("1");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState("");
+
+  async function submit() {
+    setError("");
+    setSubmitting(true);
+    try {
+      const c = parseInt(count, 10);
+      if (mode === "mint") {
+        await api.mint(market.id, c);
+        setDone(`${c} paire(s) YES+NO émise(s).`);
+      } else {
+        await api.merge(market.id, c);
+        setDone(`${c} paire(s) fusionnée(s) : ${c} MGA restitué(s).`);
+      }
+      setTimeout(onChanged, 1100);
+    } catch (e) {
+      setError(humanize(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (done) return <SuccessCard title="Opération réussie" message={done} />;
+
+  const c = parseInt(count || "0", 10) || 0;
+
+  return (
+    <div className="card space-y-4">
+      <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+        Émission / Fusion de paires
+      </h2>
+
+      <div className="grid grid-cols-2 gap-2 rounded-xl bg-zinc-100 border border-zinc-200 p-1">
+        {([
+          { k: "mint", label: "Émettre (Split)" },
+          { k: "merge", label: "Fusionner (Merge)" },
+        ] as { k: "mint" | "merge"; label: string }[]).map((t) => (
+          <button
+            key={t.k}
+            onClick={() => setMode(t.k)}
+            className={cx(
+              "rounded-lg py-2.5 text-[10px] font-bold uppercase tracking-wider transition",
+              mode === t.k ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-800"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <QuantityInput value={count} onChange={setCount} label="Nombre de paires" />
+
+      <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 space-y-1.5">
+        <div className="flex justify-between">
+          <span>{mode === "mint" ? "Débité du wallet" : "Restitué au wallet"}</span>
+          <span className={cx("font-extrabold font-display", mode === "mint" ? "text-blue-600" : "text-emerald-600")}>
+            {mode === "mint" ? "−" : "+"}{mga(String(c))} MGA
+          </span>
+        </div>
+        <div className="flex justify-between text-[10px] text-zinc-450">
+          <span>Parts générées / détruites</span>
+          <span className="font-bold text-zinc-650 font-display">
+            {c} OUI + {c} NON
+          </span>
+        </div>
+        <p className="mt-1.5 text-[9px] text-zinc-500 leading-relaxed border-t border-zinc-200/60 pt-2 normal-case font-medium">
+          {mode === "mint"
+            ? "1 MGA séquestré par paire → 1 part OUI + 1 part NON. Garantie : la plateforme ne porte aucun risque de caisse."
+            : "En fusionnant 1 OUI + 1 NON, vous récupérez exactement 1,00 MGA du séquestre, à tout moment."}
+        </p>
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50/50 px-3.5 py-2.5 text-xs font-semibold text-rose-600">
+          {error}
+        </div>
+      )}
+
+      <button onClick={submit} disabled={submitting} className="btn-primary w-full">
+        {submitting
+          ? "Traitement…"
+          : mode === "mint"
+            ? `Émettre ${c} paire(s)`
+            : `Fusionner ${c} paire(s)`}
+      </button>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Vue Carnet d'ordres (lecture)
+// --------------------------------------------------------------------------
+
+function OrderBookView({ book }: { book: OrderBook[] | null }) {
+  if (!book)
+    return (
+      <div className="card text-center py-8 text-xs font-semibold uppercase tracking-wider text-zinc-450">
+        Carnet indisponible.
+      </div>
+    );
+
+  return (
+    <div className="space-y-3">
+      {book.map((ob) => (
+        <div key={ob.outcome} className="card space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className={cx("text-[10px] font-black uppercase tracking-widest", ob.outcome === "YES" ? "text-blue-600" : "text-rose-600")}>
+              {ob.outcome === "YES" ? "OUI" : "NON"}
+            </h3>
+            {ob.last_price && (
+              <span className="text-[10px] font-bold text-zinc-500">
+                Dernier : {Math.round(parseFloat(ob.last_price) * 100)}¢
+              </span>
+            )}
+          </div>
+
+          <BookSide title="Ventes (asks)" rows={ob.asks} tone="no" />
+          <BookSide title="Achats (bids)" rows={ob.bids} tone="yes" />
+
+          {ob.bids.length === 0 && ob.asks.length === 0 && (
+            <p className="text-center text-[10px] text-zinc-400 py-2">Carnet vide.</p>
+          )}
+          {ob.spread && (
+            <p className="text-center text-[9px] text-zinc-400 uppercase tracking-wider">
+              Spread : {Math.round(parseFloat(ob.spread) * 100)}¢
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BookSide({
+  title, rows, tone,
+}: {
+  title: string; rows: { price: string; quantity: number }[]; tone: "yes" | "no";
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="space-y-1">
+      <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">{title}</p>
+      <div className="space-y-0.5">
+        {rows.slice(0, 6).map((r, i) => (
+          <div key={i} className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-1.5">
+            <span className={cx("font-display text-xs font-black", tone === "yes" ? "text-blue-600" : "text-rose-600")}>
+              {Math.round(parseFloat(r.price) * 100)}¢
+            </span>
+            <span className="text-[11px] font-semibold text-zinc-600">{r.quantity}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================================================
+// Sous-composants UI réutilisables
+// ==========================================================================
 
 function outcomeStyles(o: Outcome, selected: boolean): string {
   if (selected) {
@@ -206,24 +623,52 @@ function OutcomeButtons({
   );
 }
 
-function AmountInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function QuantityInput({
+  value, onChange, label = "Quantité (parts)",
+}: {
+  value: string; onChange: (v: string) => void; label?: string;
+}) {
   return (
     <div className="space-y-2">
-      <label className="label">Mise (MGA)</label>
+      <label className="label">{label}</label>
       <input
         className="input"
         inputMode="numeric"
         value={value}
         onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))}
       />
+    </div>
+  );
+}
+
+function PriceInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-2">
+      <label className="label">Prix limite (en MGA, 0,01 à 0,99)</label>
+      <input
+        className="input"
+        inputMode="decimal"
+        value={value}
+        placeholder="0.50"
+        onChange={(e) => {
+          let v = e.target.value.replace(/[^0-9.]/g, "");
+          // Un seul point décimal
+          const parts = v.split(".");
+          if (parts.length > 2) v = parts[0] + "." + parts.slice(1).join("");
+          // Bornes 0.01–0.99 appliquées au blur, mais on clamp ici aussi
+          const n = parseFloat(v);
+          if (!Number.isNaN(n)) onChange(String(Math.min(0.99, Math.max(0, n))));
+          else onChange(v);
+        }}
+      />
       <div className="flex gap-2">
-        {QUICK_AMOUNTS.map((v) => (
+        {[0.25, 0.5, 0.75].map((p) => (
           <button
-            key={v}
-            onClick={() => onChange(String(v))}
+            key={p}
+            onClick={() => onChange(String(p))}
             className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 py-2.5 text-[10px] font-extrabold uppercase tracking-widest text-zinc-650 hover:bg-zinc-100 hover:border-zinc-300 transition duration-300"
           >
-            {mga(v)}
+            {Math.round(p * 100)}¢
           </button>
         ))}
       </div>
@@ -231,90 +676,12 @@ function AmountInput({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
-function EstimateDisplay({ estimate }: { estimate: Estimate }) {
-  return (
-    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 space-y-1.5">
-      <div className="flex justify-between">
-        <span>Gain potentiel estimé</span>
-        <span className="font-extrabold text-blue-600 font-display">{mga(estimate.estimated_payout)} MGA</span>
-      </div>
-      <div className="flex justify-between text-[10px] text-zinc-450">
-        <span>Bénéfice net (indicatif)</span>
-        <span className="font-bold text-emerald-600 font-display">+{mga(estimate.estimated_net)} MGA</span>
-      </div>
-      <div className="flex justify-between text-[10px] text-zinc-450">
-        <span>Commission plateforme</span>
-        <span className="font-bold text-zinc-650 font-display">{estimate.commission_rate}%</span>
-      </div>
-      <p className="mt-1.5 text-[9px] text-zinc-500 leading-relaxed border-t border-zinc-200/60 pt-2 normal-case font-medium">
-        Estimation indicative. Le gain réel dépend des mises jusqu'à la clôture. Une commission de {estimate.commission_rate}% est prélevée sur le pool lors de la résolution.
-      </p>
-    </div>
-  );
-}
-
-function SuccessCard() {
+function SuccessCard({ title, message }: { title: string; message: string }) {
   return (
     <div className="card text-center py-8 space-y-2.5 bg-white border border-zinc-200">
       <CheckCircle2 className="mx-auto h-9 w-9 text-blue-600 stroke-[1.5px]" />
-      <p className="font-bold text-zinc-900 text-xs uppercase tracking-wider font-display">Pari placé avec succès</p>
-      <p className="text-[11px] text-zinc-500 font-semibold">Votre mise est enregistrée. Bonne chance.</p>
-    </div>
-  );
-}
-
-function BetPanel({ market, onChanged }: { market: Market; onChanged: () => void }) {
-  const [outcome, setOutcome] = useState<Outcome>("YES");
-  const [amount, setAmount] = useState("1000");
-  const [estimate, setEstimate] = useState<Estimate | null>(null);
-  const [placing, setPlacing] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
-
-  // Estimation en direct (debounce léger)
-  useEffect(() => {
-    setError("");
-    const t = setTimeout(() => {
-      const a = parseFloat(amount);
-      if (Number.isNaN(a) || a <= 0) {
-        setEstimate(null);
-        return;
-      }
-      api.estimate(market.id, outcome, amount).then(setEstimate).catch(() => setEstimate(null));
-    }, 300);
-    return () => clearTimeout(t);
-  }, [outcome, amount, market.id]);
-
-  async function place() {
-    setError("");
-    setPlacing(true);
-    try {
-      await api.placeBet(market.id, outcome, amount);
-      setDone(true);
-      setTimeout(onChanged, 900);
-    } catch (e) {
-      setError(humanize(e));
-    } finally {
-      setPlacing(false);
-    }
-  }
-
-  if (done) return <SuccessCard />;
-
-  return (
-    <div className="card space-y-4">
-      <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Placer un pari</h2>
-      <OutcomeButtons market={market} value={outcome} onChange={setOutcome} />
-      <AmountInput value={amount} onChange={setAmount} />
-      {estimate && <EstimateDisplay estimate={estimate} />}
-      {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50/50 px-3.5 py-2.5 text-xs font-semibold text-rose-600">
-          {error}
-        </div>
-      )}
-      <button onClick={place} className="btn-primary w-full" disabled={placing}>
-        {placing ? "Placement…" : `Parier ${mga(amount || "0")} MGA sur ${outcome === "YES" ? "OUI" : "NON"}`}
-      </button>
+      <p className="font-bold text-zinc-900 text-xs uppercase tracking-wider font-display">{title}</p>
+      <p className="text-[11px] text-zinc-500 font-semibold">{message}</p>
     </div>
   );
 }
@@ -323,7 +690,7 @@ function humanize(e: unknown): string {
   if (e instanceof ApiError) {
     const d = e.detail as { detail?: string } | null;
     if (d?.detail) return d.detail;
-    if (e.status === 400) return "Solde insuffisant ou mise invalide.";
+    if (e.status === 400) return "Solde ou parts insuffisants, ou ordre invalide.";
   }
   return "Une erreur est survenue.";
 }
