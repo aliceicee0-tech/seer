@@ -200,10 +200,13 @@ SIMPLE_JWT = {
 PLATFORM_COMMISSION_RATE = env.float("PLATFORM_COMMISSION_RATE", default=10.0)  # %
 MIN_BET_AMOUNT = env.int("MIN_BET_AMOUNT", default=500)
 
-# Moteur Polymarket : bornes de prix d'une action (0,01 à 0,99 MGA).
-# Le OUI et le NON s'équilibrent toujours à 1,00 MGA (cahier des charges §2).
-MIN_ORDER_PRICE = env("MIN_ORDER_PRICE", default="0.01")
-MAX_ORDER_PRICE = env("MAX_ORDER_PRICE", default="0.99")
+# Moteur Polymarket : 1 part vaut SHARE_VALUE Ar à la résolution (modèle type
+# Polymarket où 1 share = $1, ici en Ariary). Le prix d'une part fluctue entre
+# MIN_ORDER_PRICE Ar et MAX_ORDER_PRICE Ar (1 à 4999 Ar, pas de 1 Ar).
+# prix YES + prix NON = SHARE_VALUE (toujours).
+SHARE_VALUE = env.int("SHARE_VALUE", default=5000)
+MIN_ORDER_PRICE = env("MIN_ORDER_PRICE", default="1")
+MAX_ORDER_PRICE = env("MAX_ORDER_PRICE", default="4999")
 
 # Numéros Mobile Money affichés aux joueurs pour leurs dépôts
 MVOLA_NUMBER = env("MVOLA_NUMBER", default="0340000000")

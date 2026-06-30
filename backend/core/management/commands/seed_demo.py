@@ -74,28 +74,29 @@ class Command(BaseCommand):
 
         # --- Joueur démo ----------------------------------------------------
         player = self._ensure_player("0341234567", "Joueur Démo", "demo1234",
-                                     credit=Decimal("10000"))
+                                     credit=Decimal("500000"))
 
         # --- Market makers de démo : ils mintent puis placent des ordres ----
         # pour qu'un vrai carnet d'ordres soit visible côté joueur.
+        # Crédit large : mint de 20 paires = 100 000 Ar par marché.
         mm1 = self._ensure_player("0340000099", "Market Maker A", "mm1234",
-                                  credit=Decimal("5000"))
+                                  credit=Decimal("1000000"))
         mm2 = self._ensure_player("0340000088", "Market Maker B", "mm1234",
-                                  credit=Decimal("5000"))
+                                  credit=Decimal("1000000"))
 
         nb_orders = 0
         for m in markets[:3]:
             try:
-                # Chaque market maker minte 1000 paires (= 1000 YES + 1000 NO)
-                mint_pair(user=mm1, market=m, count=1000)
-                mint_pair(user=mm2, market=m, count=1000)
-                # mm1 vend du YES bon marché, mm2 vend du NO bon marché
+                # Chaque market maker minte 20 paires (coûte 100 000 Ar)
+                mint_pair(user=mm1, market=m, count=20)
+                mint_pair(user=mm2, market=m, count=20)
+                # Prix en Ar (1 part = 5000 Ar) : OUI autour de 3000 Ar (60%)
                 place_order(user=mm1, market=m, side="SELL", outcome="YES",
-                            order_type="LIMIT", quantity=500, price=Decimal("0.55"))
+                            order_type="LIMIT", quantity=10, price=Decimal("3000"))
                 place_order(user=mm2, market=m, side="SELL", outcome="YES",
-                            order_type="LIMIT", quantity=300, price=Decimal("0.60"))
+                            order_type="LIMIT", quantity=10, price=Decimal("3200"))
                 place_order(user=mm2, market=m, side="BUY", outcome="YES",
-                            order_type="LIMIT", quantity=400, price=Decimal("0.50"))
+                            order_type="LIMIT", quantity=10, price=Decimal("2800"))
                 nb_orders += 3
             except MarketError as e:
                 self.stdout.write(self.style.WARNING(f"    Ordre ignoré : {e}"))

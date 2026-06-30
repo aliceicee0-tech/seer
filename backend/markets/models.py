@@ -129,15 +129,19 @@ class Market(models.Model):
     def proba(self) -> dict:
         """Probabilités implicites dérivées du dernier prix de trade.
 
-        Avant tout échange (marché tout neuf) : 0.50 / 0.50 par convention.
-        Sinon : YES = dernier prix, NO = 1 − dernier prix.
+        Une part vaut SHARE_VALUE Ar (5000) à la résolution, donc :
+            proba(YES) = prix_YES / SHARE_VALUE   (entre 0 et 1)
+        Avant tout échange : 0.50 / 0.50 par convention.
         """
+        from django.conf import settings
+        share_value = Decimal(settings.SHARE_VALUE)
         p = self.last_trade_price()
         if p is None:
             return {"YES": Decimal("0.5000"), "NO": Decimal("0.5000")}
+        yes = (p / share_value).quantize(Decimal("0.0001"))
         return {
-            "YES": p.quantize(Decimal("0.0001")),
-            "NO": (Decimal("1") - p).quantize(Decimal("0.0001")),
+            "YES": yes,
+            "NO": (Decimal("1") - yes),
         }
 
 
@@ -146,10 +150,10 @@ class Market(models.Model):
 # --------------------------------------------------------------------------
 
 class MarketPool(models.Model):
-    """Coffre-fort d'un marché : 1 MGA bloqué par paire (YES+NO) en circulation.
+    """Coffre-fort d'un marché : SHARE_VALUE Ar bloqués par paire (YES+NO).
 
     **Invariant (cahier des charges §2, §4, §5)** :
-        escrow_balance == pairs_created − pairs_destroyed
+        escrow_balance == (pairs_created − pairs_destroyed) × SHARE_VALUE
 
     Cette table est l'argent séquestré, intouchable par la plateforme.
     """
@@ -180,8 +184,11 @@ class MarketPool(models.Model):
         return self.pairs_created - self.pairs_destroyed
 
     def invariant_ok(self) -> bool:
-        """Vérifie escrow == paires en circulation (cahier des charges §5)."""
-        return Decimal(self.escrow_balance) == Decimal(self.pairs_in_circulation)
+        """Vérifie escrow == paires en circulation × SHARE_VALUE (cahier des charges §5)."""
+        from django.conf import settings
+        return Decimal(self.escrow_balance) == (
+            Decimal(self.pairs_in_circulation) * Decimal(settings.SHARE_VALUE)
+        )
 
 
 # --------------------------------------------------------------------------
@@ -202,9 +209,9 @@ class Position(models.Model):
     quantity = models.BigIntegerField(default=0)
     # Parts bloquées par des ordres de vente en attente (non vendables)
     locked_quantity = models.BigIntegerField(default=0)
-    # Prix moyen d'achat pondéré (4 décimales) — pour le P&L affiché
+    # Prix moyen d'achat pondéré (en Ar) — pour le P&L affiché
     avg_buy_price = models.DecimalField(
-        max_digits=7, decimal_places=4, default=Decimal("0"),
+        max_digits=7, decimal_places=2, default=Decimal("0"),
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -271,11 +278,11 @@ class Order(models.Model):
     order_type = models.CharField(max_length=6, choices=OrderType.choices)
     outcome = models.CharField(max_length=3, choices=MarketOutcome.choices)
     price = models.DecimalField(
-        _("Prix limite"), max_digits=5, decimal_places=2, null=True, blank=True,
-        help_text=_("Requis pour LIMIT (0,01 à 0,99). Vide pour MARKET."),
+        _("Prix limite"), max_digits=7, decimal_places=2, null=True, blank=True,
+        help_text=_("Requis pour LIMIT (1 à 4999 Ar). Vide pour MARKET."),
         validators=[
-            MinValueValidator(Decimal("0.01")),
-            MaxValueValidator(Decimal("0.99")),
+            MinValueValidator(Decimal("1")),
+            MaxValueValidator(Decimal("4999")),
         ],
     )
     quantity = models.BigIntegerField(_("Quantité demandée"))
@@ -333,7 +340,7 @@ class Trade(models.Model):
     sell_order = models.ForeignKey(
         Order, on_delete=models.PROTECT, related_name="sell_trades"
     )
-    price = models.DecimalField(max_digits=5, decimal_places=2)
+    price = models.DecimalField(max_digits=7, decimal_places=2)
     quantity = models.BigIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 

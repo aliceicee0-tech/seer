@@ -70,7 +70,7 @@ class OrderCreateSerializer(serializers.Serializer):
     outcome = serializers.ChoiceField(choices=MarketOutcome.choices)
     order_type = serializers.ChoiceField(choices=Order.OrderType.choices)
     price = serializers.DecimalField(
-        max_digits=5, decimal_places=2,
+        max_digits=7, decimal_places=2,
         min_value=Decimal(settings.MIN_ORDER_PRICE),
         max_value=Decimal(settings.MAX_ORDER_PRICE),
         required=False, allow_null=True,
@@ -128,7 +128,7 @@ class TradeSerializer(serializers.ModelSerializer):
 # --------------------------------------------------------------------------
 
 class OrderBookLevelSerializer(serializers.Serializer):
-    price = serializers.DecimalField(max_digits=5, decimal_places=2)
+    price = serializers.DecimalField(max_digits=7, decimal_places=2)
     quantity = serializers.IntegerField()
 
 
@@ -137,9 +137,9 @@ class OrderBookSerializer(serializers.Serializer):
     outcome = serializers.CharField()
     bids = OrderBookLevelSerializer(many=True)   # achats en attente (meilleur = +haut)
     asks = OrderBookLevelSerializer(many=True)   # ventes en attente (meilleur = +bas)
-    spread = serializers.DecimalField(max_digits=6, decimal_places=2)
+    spread = serializers.DecimalField(max_digits=8, decimal_places=2)
     last_price = serializers.DecimalField(
-        max_digits=5, decimal_places=2, allow_null=True
+        max_digits=7, decimal_places=2, allow_null=True
     )
 
 

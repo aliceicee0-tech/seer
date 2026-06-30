@@ -7,7 +7,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../store/auth";
 import { Badge, ProbabilityBar, Spinner } from "../components/ui";
-import { cx, dateFr, mga, timeLeft } from "../lib/format";
+import { arPrice, cx, dateFr, mga, pctOf, timeLeft } from "../lib/format";
 import {
   BookOpen, Globe, ShieldAlert, Calendar, ArrowLeft, CheckCircle2,
   Layers, ArrowDownUp,
@@ -15,7 +15,7 @@ import {
 
 export default function MarketDetailPage() {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, fetchMe } = useAuth();
   const [m, setM] = useState<Market | null>(null);
   const [pool, setPool] = useState<MarketPool | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +47,12 @@ export default function MarketDetailPage() {
     );
 
   const open = m.status === "OPEN";
-  const onChanged = () => setRefreshKey((k) => k + 1);
+  // Après toute opération (achat/vente/mint/merge), on rafraîchit à la fois
+  // les données du marché ET le wallet du joueur (sinon le solde ne bouge pas).
+  const onChanged = () => {
+    setRefreshKey((k) => k + 1);
+    fetchMe();
+  };
 
   return (
     <div className="space-y-4">
@@ -74,10 +79,10 @@ export default function MarketDetailPage() {
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-              <Stat label="Dernier prix" value={m.last_price ? `${Math.round(parseFloat(m.last_price) * 100)}¢` : "—"} sub="1 part = 1,00 MGA à la résolution" />
+              <Stat label="Dernier prix" value={m.last_price ? `${arPrice(m.last_price)} Ar` : "—"} sub={`1 part = ${mga(5000)} Ar à la résolution`} />
               <Stat label="Clôture" value={timeLeft(m.bet_close_at)} sub={dateFr(m.bet_close_at)} />
-              <Stat label="OUI" value={m.last_price ? `${Math.round(parseFloat(m.last_price) * 100)}%` : "50%"} tone="yes" />
-              <Stat label="NON" value={m.last_price ? `${Math.round((1 - parseFloat(m.last_price)) * 100)}%` : "50%"} tone="no" />
+              <Stat label="OUI" value={pctOf(m.last_price)} tone="yes" />
+              <Stat label="NON" value={m.last_price ? `${Math.round((1 - parseFloat(m.last_price) / 5000) * 100)}%` : "50%"} tone="no" />
             </div>
 
             {pool && (
@@ -370,21 +375,21 @@ function TradePanel({
             <div className="flex justify-between">
               <span>Prix unitaire</span>
               <span className="font-extrabold text-zinc-700 font-display">
-                {Math.round(parseFloat(price) * 100)}¢
+                {arPrice(price)} Ar <span className="text-zinc-400 font-bold">({pctOf(price)})</span>
               </span>
             </div>
           )}
           <div className="flex justify-between">
             <span>Coût {side === "BUY" ? "(déboursé)" : "(reçu)"}</span>
             <span className={cx("font-extrabold font-display", side === "BUY" ? "text-blue-600" : "text-emerald-600")}>
-              {side === "BUY" ? "−" : "+"}{mga(String(cost))} MGA
+              {side === "BUY" ? "−" : "+"}{mga(String(cost))} Ar
             </span>
           </div>
           {side === "BUY" && estimate && (
             <div className="flex justify-between text-[10px] text-zinc-450">
               <span>Si résolu {outcome === "YES" ? "OUI" : "NON"}</span>
               <span className="font-bold text-emerald-600 font-display">
-                +{mga(estimate.payout_if_win)} MGA
+                +{mga(estimate.payout_if_win)} Ar
               </span>
             </div>
           )}
@@ -644,31 +649,34 @@ function QuantityInput({
 function PriceInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="space-y-2">
-      <label className="label">Prix limite (en MGA, 0,01 à 0,99)</label>
-      <input
-        className="input"
-        inputMode="decimal"
-        value={value}
-        placeholder="0.50"
-        onChange={(e) => {
-          let v = e.target.value.replace(/[^0-9.]/g, "");
-          // Un seul point décimal
-          const parts = v.split(".");
-          if (parts.length > 2) v = parts[0] + "." + parts.slice(1).join("");
-          // Bornes 0.01–0.99 appliquées au blur, mais on clamp ici aussi
-          const n = parseFloat(v);
-          if (!Number.isNaN(n)) onChange(String(Math.min(0.99, Math.max(0, n))));
-          else onChange(v);
-        }}
-      />
+      <label className="label">Prix limite (Ar, 1 à 4999)</label>
+      <div className="relative">
+        <input
+          className="input pr-12"
+          inputMode="numeric"
+          value={value}
+          placeholder="3000"
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^0-9]/g, "");
+            const n = parseInt(v, 10);
+            if (!Number.isNaN(n)) onChange(String(Math.min(4999, Math.max(0, n))));
+            else onChange(v);
+          }}
+        />
+        {value && (
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+            {pctOf(value)}
+          </span>
+        )}
+      </div>
       <div className="flex gap-2">
-        {[0.25, 0.5, 0.75].map((p) => (
+        {[1250, 2500, 3750].map((p) => (
           <button
             key={p}
             onClick={() => onChange(String(p))}
             className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 py-2.5 text-[10px] font-extrabold uppercase tracking-widest text-zinc-650 hover:bg-zinc-100 hover:border-zinc-300 transition duration-300"
           >
-            {Math.round(p * 100)}¢
+            {p} Ar
           </button>
         ))}
       </div>

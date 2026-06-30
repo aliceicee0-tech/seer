@@ -35,7 +35,15 @@ from .models import (
     Market, MarketOutcome, MarketPool, MarketStatus, Order, Position, Trade,
 )
 
-ONE = Decimal("1.00")  # valeur d'une paire / part gagnante à la résolution
+
+def share_value() -> Decimal:
+    """Valeur d'une part à la résolution (5000 Ar par défaut).
+
+    Centralisé ici pour que tout le moteur utilise la même unité.
+    1 paire (1 YES + 1 NO) vaut `share_value()` Ar en séquestre.
+    Le prix d'une part sur le carnet fluctue entre 1 Ar et share_value − 1 Ar.
+    """
+    return Decimal(settings.SHARE_VALUE)
 
 
 class MarketError(Exception):
@@ -66,7 +74,7 @@ def _new_avg_buy_price(old_qty: int, old_avg: Decimal, added_qty: int,
     if total_qty <= 0:
         return Decimal("0")
     new_avg = (Decimal(old_qty) * Decimal(old_avg) + Decimal(added_qty) * Decimal(price)) / total_qty
-    return new_avg.quantize(Decimal("0.0001"))
+    return new_avg.quantize(Decimal("0.01"))
 
 
 def _order_needs_price(order: Order):
@@ -122,7 +130,8 @@ def mint_pair(*, user, market, count: int):
         raise MarketError("Ce marché n'accepte plus d'émissions.")
 
     pool = _get_pool_locked(market)
-    cost = ONE * count
+    sv = share_value()
+    cost = sv * count
 
     # 1) Débit wallet → séquestre marché (écriture MINT)
     try:
@@ -139,16 +148,16 @@ def mint_pair(*, user, market, count: int):
     except InsufficientFunds as e:
         raise MarketError(str(e))
 
-    # 2) Escrow += count, compteur de paires
+    # 2) Escrow += count × valeur_partage, compteur de paires
     pool.escrow_balance += cost
     pool.pairs_created += count
     pool.save(update_fields=["escrow_balance", "pairs_created", "updated_at"])
 
-    # 3) Crédit des parts YES et NO au demandeur (moyen = 1,00 à l'émission)
+    # 3) Crédit des parts YES et NO au demandeur (moyen = share_value à l'émission)
     for outcome in (MarketOutcome.YES, MarketOutcome.NO):
         pos = _get_position_locked(user, market, outcome)
         pos.avg_buy_price = _new_avg_buy_price(
-            pos.quantity, pos.avg_buy_price, count, ONE
+            pos.quantity, pos.avg_buy_price, count, sv
         )
         pos.quantity += count
         pos.save(update_fields=["quantity", "avg_buy_price", "updated_at"])
@@ -186,7 +195,7 @@ def merge_pair(*, user, market, count: int):
     pos_no.save(update_fields=["quantity", "updated_at"])
 
     # Libère l'escrow
-    release = ONE * count
+    release = share_value() * count
     pool.escrow_balance -= release
     pool.pairs_destroyed += count
     pool.save(update_fields=["escrow_balance", "pairs_destroyed", "updated_at"])
@@ -233,8 +242,8 @@ def place_order(*, user, market, side: str, outcome: str, order_type: str,
     if not market.is_tradeable():
         raise MarketError("Ce carnet d'ordres est fermé.")
 
-    # Validation du prix (bornes 0,01–0,99) — défense en profondeur (le
-    # validateur du modèle le contrôle aussi côté DB).
+    # Validation du prix (bornes en Ar) — défense en profondeur (le validateur
+    # du modèle le contrôle aussi côté DB).
     min_p = Decimal(settings.MIN_ORDER_PRICE)
     max_p = Decimal(settings.MAX_ORDER_PRICE)
     if order_type == Order.OrderType.LIMIT:
@@ -242,7 +251,7 @@ def place_order(*, user, market, side: str, outcome: str, order_type: str,
             raise MarketError("Un ordre LIMIT requiert un prix.")
         price = Decimal(price)
         if price < min_p or price > max_p:
-            raise MarketError(f"Prix hors bornes [{min_p}, {max_p}].")
+            raise MarketError(f"Prix hors bornes [{min_p}, {max_p}] Ar.")
 
     # On verrouille le marché pour éviter toute concurrence sur le carnet.
     market = Market.objects.select_for_update().get(pk=market.pk)
@@ -543,7 +552,7 @@ def resolve_market(*, market, outcome: str, admin_user) -> Market:
 
     for pos in list(Position.objects.select_for_update().filter(market=market)):
         if pos.outcome == winning_outcome and pos.quantity > 0:
-            payout = ONE * pos.quantity
+            payout = share_value() * pos.quantity
             post_entry(
                 wallet=pos.user.wallet,
                 entry_type="SETTLE_WIN",
@@ -598,13 +607,13 @@ def cancel_market(*, market, admin_user) -> Market:
     )):
         cancel_order(order=order, user=admin_user)
 
-    # Rembourse chaque part à 0,50 MGA (neutralité : pas de gagnant).
+    # Rembourse chaque part à la moitié de sa valeur (neutralité : pas de gagnant).
     # Comme YES_en_circulation == NO_en_circulation == paires en circulation,
-    # rembourser chaque côté à 0,50 épuise exactement l'escrow (1,00 par paire).
-    # NB : un utilisateur ayant pu acquérir un côté « nu » (sans l'autre) via le
-    # carnet reçoit aussi 0,50/part — l'escrow reste équilibré car le total des
-    # parts YES == total des parts NO == escrow.
-    REFUND_PER_SHARE = Decimal("0.50")
+    # rembourser chaque côté à share_value/2 épuise exactement l'escrow
+    # (1 paire = share_value Ar). NB : un utilisateur ayant pu acquérir un côté
+    # « nu » (sans l'autre) via le carnet reçoit aussi share_value/2 par part —
+    # l'escrow reste équilibré car total YES == total NO == escrow.
+    REFUND_PER_SHARE = (share_value() / 2).quantize(Decimal("0.01"))
     for pos in list(Position.objects.select_for_update().filter(market=market)):
         if pos.quantity > 0:
             payout = (REFUND_PER_SHARE * pos.quantity).quantize(Decimal("0.01"))
@@ -700,7 +709,7 @@ def verify_invariants() -> dict:
         ok = (
             pool.invariant_ok()
             and yes_total == no_total == pool.pairs_in_circulation
-            and Decimal(pool.escrow_balance) == Decimal(yes_total) * ONE
+            and Decimal(pool.escrow_balance) == Decimal(yes_total) * share_value()
         )
         if not ok:
             report["frozen_markets"].append({
@@ -757,8 +766,8 @@ def estimate_payout(market: Market, outcome: str, quantity) -> dict:
     """Estimation du gain potentiel pour `quantity` parts du côté `outcome`.
 
     Modèle collatéralisé : à la résolution, chaque part gagnante vaut exactement
-    1,00 MGA. L'estimation ne dépend donc PAS d'un pool (contrairement au pari
-    mutuel) — seulement de la quantité détenue.
+    `share_value()` Ar (5000 par défaut). L'estimation ne dépend donc PAS d'un
+    pool (contrairement au pari mutuel) — seulement de la quantité détenue.
     """
     if outcome not in MarketOutcome.values:
         raise MarketError("outcome invalide (YES ou NO).")
@@ -766,9 +775,10 @@ def estimate_payout(market: Market, outcome: str, quantity) -> dict:
     if quantity <= 0:
         raise MarketError("La quantité doit être positive.")
 
+    sv = share_value()
     last_price = market.last_trade_price()
     current_cost = (last_price * quantity) if last_price else None
-    payout = ONE * quantity
+    payout = sv * quantity
     return {
         "quantity": str(quantity),
         "outcome": outcome,
