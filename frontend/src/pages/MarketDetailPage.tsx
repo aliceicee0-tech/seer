@@ -313,12 +313,44 @@ function TradePanel({
     return <SuccessCard title="Ordre placé" message={done} />;
 
   const qty = parseInt(quantity || "0", 10) || 0;
-  const cost =
+
+  // Meilleur prix disponible dans le carnet pour le côté choisi.
+  const ob = book?.find((b) => b.outcome === outcome);
+  const bestAsk = ob?.asks[0];   // meilleure vente (prix le + bas)
+  const bestBid = ob?.bids[0];   // meilleur achat (prix le + haut)
+  const marketPrice = side === "BUY"
+    ? (bestAsk ? parseFloat(bestAsk.price) : null)
+    : (bestBid ? parseFloat(bestBid.price) : null);
+
+  // Prix effectif de l'ordre : LIMIT = prix saisi, MARKET = prix du carnet.
+  const effectivePrice =
     orderType === "LIMIT" && price
-      ? qty * parseFloat(price)
-      : estimate?.current_cost
-        ? parseFloat(estimate.current_cost)
-        : null;
+      ? parseFloat(price)
+      : marketPrice;
+
+  // Total à payer (achat) / à recevoir (vente).
+  const total = effectivePrice ? qty * effectivePrice : null;
+
+  // L'ordre va-t-il s'exécuter immédiatement ?
+  let willExecute = false;
+  let waitingHint = "";
+  if (orderType === "MARKET" && marketPrice) {
+    willExecute = true;
+  } else if (orderType === "LIMIT" && price && marketPrice) {
+    const p = parseFloat(price);
+    if (side === "BUY" && p >= marketPrice) {
+      willExecute = true;
+    } else if (side === "SELL" && p <= marketPrice) {
+      willExecute = true;
+    } else {
+      willExecute = false;
+      waitingHint = side === "BUY"
+        ? `Prix trop bas : le marché est à ${mga(marketPrice)} Ar. Cet ordre restera en attente jusqu'à ce qu'un vendeur accepte.`
+        : `Prix trop haut : le marché est à ${mga(marketPrice)} Ar. Cet ordre restera en attente jusqu'à ce qu'un acheteur accepte.`;
+    }
+  } else if (orderType === "LIMIT" && price && !marketPrice) {
+    waitingHint = "Carnet vide côté opposé : votre ordre sera en attente.";
+  }
 
   return (
     <div className="card space-y-4">
@@ -364,35 +396,102 @@ function TradePanel({
       </div>
 
       {orderType === "LIMIT" && (
-        <PriceInput value={price} onChange={setPrice} />
+        <PriceInput
+          value={price}
+          onChange={setPrice}
+          hint={
+            marketPrice
+              ? `Prix du marché : ${mga(marketPrice)} Ar (${pctOf(marketPrice)}). Offrez ce prix ou plus pour acheter immédiatement.`
+              : "Aucun ordre opposé pour l'instant : votre prix sera en attente."
+          }
+        />
       )}
       <QuantityInput value={quantity} onChange={setQuantity} />
 
-      {/* Récap coût */}
-      {cost !== null && (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 space-y-1.5">
-          {orderType === "LIMIT" && (
-            <div className="flex justify-between">
-              <span>Prix unitaire</span>
-              <span className="font-extrabold text-zinc-700 font-display">
-                {arPrice(price)} Ar <span className="text-zinc-400 font-bold">({pctOf(price)})</span>
-              </span>
-            </div>
-          )}
-          <div className="flex justify-between">
-            <span>Coût {side === "BUY" ? "(déboursé)" : "(reçu)"}</span>
-            <span className={cx("font-extrabold font-display", side === "BUY" ? "text-blue-600" : "text-emerald-600")}>
-              {side === "BUY" ? "−" : "+"}{mga(String(cost))} Ar
+      {/* Avertissement : ordre qui restera en attente (prix non exécutable) */}
+      {waitingHint && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3.5 py-2.5 text-[11px] font-semibold text-amber-700 leading-snug">
+          ⏳ {waitingHint}
+        </div>
+      )}
+
+      {/* Récap clair façon Polymarket */}
+      {total !== null && (
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-2">
+          {/* Ligne principale : Total à payer / à recevoir */}
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-500">
+              {side === "BUY" ? "Total à payer" : "Total à recevoir"}
+            </span>
+            <span className={cx(
+              "font-display text-lg font-black tracking-tight",
+              side === "BUY" ? "text-blue-600" : "text-emerald-600"
+            )}>
+              {mga(String(total))} Ar
             </span>
           </div>
-          {side === "BUY" && estimate && (
-            <div className="flex justify-between text-[10px] text-zinc-450">
-              <span>Si résolu {outcome === "YES" ? "OUI" : "NON"}</span>
-              <span className="font-bold text-emerald-600 font-display">
-                +{mga(estimate.payout_if_win)} Ar
-              </span>
+
+          {/* Détail : prix × quantité */}
+          <div className="flex justify-between text-[10px] font-semibold uppercase tracking-wider text-zinc-450">
+            <span>
+              {effectivePrice && mga(String(effectivePrice))} Ar × {qty} part{qty > 1 ? "s" : ""}
+            </span>
+            <span>
+              {willExecute ? "✓ exécuté maintenant" : "en attente"}
+            </span>
+          </div>
+
+          {/* Gain potentiel à la résolution (achat) */}
+          {side === "BUY" && (
+            <div className="border-t border-zinc-200/60 pt-2 space-y-1">
+              <div className="flex justify-between text-[10px] font-semibold uppercase tracking-wider text-zinc-450">
+                <span>Si {outcome === "YES" ? "OUI" : "NON"} gagne</span>
+                <span className="font-bold text-emerald-600 font-display">
+                  +{mga(String(qty * 5000))} Ar
+                </span>
+              </div>
+              <div className="flex justify-between text-[10px] font-semibold uppercase tracking-wider text-zinc-450">
+                <span>Bénéfice net potentiel</span>
+                <span className="font-bold text-emerald-600 font-display">
+                  +{mga(String(qty * 5000 - total))} Ar
+                </span>
+              </div>
+              {willExecute && total > 0 && (
+                <div className="text-[9px] text-zinc-500 leading-relaxed normal-case font-medium pt-0.5">
+                  Chaque part vaut 5000 Ar si {outcome === "YES" ? "OUI" : "NON"} gagne, 0 Ar sinon.
+                </div>
+              )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Mini-carnet : meilleurs prix disponibles pour le côté sélectionné */}
+      {ob && (ob.asks.length > 0 || ob.bids.length > 0) && (
+        <div className="rounded-xl border border-zinc-200 overflow-hidden">
+          <p className="bg-zinc-50 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-widest text-zinc-400">
+            Carnet — {outcome === "YES" ? "OUI" : "NON"}
+          </p>
+          <div className="divide-y divide-zinc-100">
+            {ob.asks.slice(0, 3).map((l, i) => (
+              <div key={`a${i}`} className="flex items-center justify-between px-3 py-1.5">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Vente</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-display text-xs font-black text-rose-600">{arPrice(l.price)} Ar</span>
+                  <span className="text-[10px] text-zinc-500">{l.quantity}</span>
+                </span>
+              </div>
+            ))}
+            {ob.bids.slice(0, 3).map((l, i) => (
+              <div key={`b${i}`} className="flex items-center justify-between px-3 py-1.5">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Achat</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-display text-xs font-black text-blue-600">{arPrice(l.price)} Ar</span>
+                  <span className="text-[10px] text-zinc-500">{l.quantity}</span>
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -412,7 +511,9 @@ function TradePanel({
       >
         {submitting
           ? "Traitement…"
-          : `${side === "BUY" ? "Acheter" : "Vendre"} ${qty} ${outcome === "YES" ? "OUI" : "NON"}`}
+          : total !== null
+            ? `${side === "BUY" ? "Acheter" : "Vendre"} ${qty} part${qty > 1 ? "s" : ""} ${outcome === "YES" ? "OUI" : "NON"} — ${mga(String(total))} Ar`
+            : `${side === "BUY" ? "Acheter" : "Vendre"} ${qty} ${outcome === "YES" ? "OUI" : "NON"}`}
       </button>
     </div>
   );
@@ -439,7 +540,7 @@ function MintMergePanel({ market, onChanged }: { market: Market; onChanged: () =
         setDone(`${c} paire(s) YES+NO émise(s).`);
       } else {
         await api.merge(market.id, c);
-        setDone(`${c} paire(s) fusionnée(s) : ${c} MGA restitué(s).`);
+        setDone(`${c} paire(s) fusionnée(s) : ${c * 5000} Ar restitué(s).`);
       }
       setTimeout(onChanged, 1100);
     } catch (e) {
@@ -608,6 +709,8 @@ function OutcomeButtons({
       {(["YES", "NO"] as Outcome[]).map((o) => {
         const selected = value === o;
         const pct = Math.round(parseFloat(o === "YES" ? market.proba_yes : market.proba_no) * 100);
+        // Prix indicatif dérivé du pourcentage (1 part = 5000 Ar).
+        const price = Math.round(pct / 100 * 5000);
         return (
           <button
             key={o}
@@ -619,7 +722,7 @@ function OutcomeButtons({
           >
             <span className="text-xs tracking-widest font-black uppercase">{o === "YES" ? "OUI" : "NON"}</span>
             <span className={cx("text-[10px] font-bold tracking-wider mt-0.5", selected ? "text-white/85" : "text-zinc-500")}>
-              {pct}%
+              {price} Ar · {pct}%
             </span>
           </button>
         );
@@ -646,13 +749,20 @@ function QuantityInput({
   );
 }
 
-function PriceInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function PriceInput({
+  value, onChange, hint,
+}: {
+  value: string; onChange: (v: string) => void; hint?: string;
+}) {
   return (
     <div className="space-y-2">
-      <label className="label">Prix limite (Ar, 1 à 4999)</label>
+      <div className="flex items-center justify-between">
+        <label className="label !mb-0">Prix limite (Ar par part)</label>
+        <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">1 à 4999 Ar</span>
+      </div>
       <div className="relative">
         <input
-          className="input pr-12"
+          className="input pr-16"
           inputMode="numeric"
           value={value}
           placeholder="3000"
@@ -665,10 +775,13 @@ function PriceInput({ value, onChange }: { value: string; onChange: (v: string) 
         />
         {value && (
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-            {pctOf(value)}
+            {arPrice(value)} Ar
           </span>
         )}
       </div>
+      {hint && (
+        <p className="text-[9px] font-semibold text-zinc-400 leading-snug">{hint}</p>
+      )}
       <div className="flex gap-2">
         {[1250, 2500, 3750].map((p) => (
           <button
