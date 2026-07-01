@@ -155,6 +155,15 @@ def settle_buy_fill(
     wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
     cost = Decimal(cost)
     reserve_release = Decimal(reserve_release)
+    # Garde de non-négativité (faille B1) : jamais débiter plus que le solde.
+    # En pratique le séquestre couvre `cost`, mais ce garde protège contre un
+    # bug applicatif ou une libération de séquestre concurrente qui ferait
+    # diverger `cost` et `reserve_release`.
+    if wallet.balance < cost:
+        raise InsufficientFunds(
+            f"Solde insuffisant pour le règlement d'achat "
+            f"({wallet.balance} < {cost})."
+        )
     wallet.balance -= cost
     wallet.locked_balance = max(
         Decimal("0"), Decimal(wallet.locked_balance) - reserve_release
@@ -179,6 +188,19 @@ def settle_locked_withdraw(wallet, amount, *, created_by=None, reference="") -> 
     with transaction.atomic():
         wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
         amount = Decimal(amount)
+        # Gardes de non-négativité (faille B1) : le retrait a normalement été
+        # bloqué au préalable (post_entry lock=True), donc `amount` doit se
+        # trouver à la fois dans `balance` et dans `locked_balance`. On l'exige.
+        if wallet.balance < amount:
+            raise InsufficientFunds(
+                f"Solde insuffisant pour finaliser le retrait "
+                f"({wallet.balance} < {amount})."
+            )
+        if wallet.locked_balance < amount:
+            raise InsufficientFunds(
+                f"Séquestre de retrait insuffisant "
+                f"({wallet.locked_balance} < {amount}) — incohérence d'état."
+            )
         wallet.locked_balance = max(
             Decimal("0"), Decimal(wallet.locked_balance) - amount
         )

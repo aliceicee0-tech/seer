@@ -547,12 +547,37 @@ def resolve_market(*, market, outcome: str, admin_user) -> Market:
         cancel_order(order=order, user=admin_user)
 
     # 2 & 3) Paiement des gagnants + destruction des perdants
+    # PRE-CHECK (faille B2) : ne payer PERSONNE si le carnet est incohérent.
+    # Si l'invariant tient (escrow == paires × share_value ET YES == NO == paires),
+    # alors le paiement des gagnants épuise exactement l'escrow par construction
+    # mathématique. Sur un carnet corrompu, on refuse de payer — le marché reste
+    # gelable manuellement via verify_invariants.
+    yes_total = Position.total_quantity(market, MarketOutcome.YES)
+    no_total = Position.total_quantity(market, MarketOutcome.NO)
+    if (not pool.invariant_ok()
+            or yes_total != no_total
+            or yes_total != pool.pairs_in_circulation):
+        raise MarketError(
+            f"Résolution impossible : carnet incohérent "
+            f"(YES={yes_total}, NO={no_total}, paires={pool.pairs_in_circulation}, "
+            f"escrow={pool.escrow_balance}). Aucun paiement effectué — "
+            f"lancez « verify_invariants » pour audit."
+        )
+
     winning_outcome = outcome
     losing_outcome = MarketOutcome.NO if outcome == MarketOutcome.YES else MarketOutcome.YES
 
     for pos in list(Position.objects.select_for_update().filter(market=market)):
         if pos.outcome == winning_outcome and pos.quantity > 0:
             payout = share_value() * pos.quantity
+            # Garde défense en profondeur (faille B2) : l'escrow ne doit jamais
+            # partir en négatif. Le pre-check ci-dessus garantit en théorie que
+            # la somme des payouts == escrow ; ce garde protège contre un bug.
+            if pool.escrow_balance < payout:
+                raise MarketError(
+                    f"Escrow insuffisant lors de la résolution "
+                    f"({pool.escrow_balance} < {payout}). Marché incohérent."
+                )
             post_entry(
                 wallet=pos.user.wallet,
                 entry_type="SETTLE_WIN",
@@ -613,10 +638,32 @@ def cancel_market(*, market, admin_user) -> Market:
     # (1 paire = share_value Ar). NB : un utilisateur ayant pu acquérir un côté
     # « nu » (sans l'autre) via le carnet reçoit aussi share_value/2 par part —
     # l'escrow reste équilibré car total YES == total NO == escrow.
+
+    # PRE-CHECK (faille B2) : ne rembourser PERSONNE si le carnet est incohérent.
+    # Si YES == NO == paires en circulation, le remboursement universel à
+    # share_value/2 épuise exactement l'escrow. Sinon, on refuse.
+    yes_total = Position.total_quantity(market, MarketOutcome.YES)
+    no_total = Position.total_quantity(market, MarketOutcome.NO)
+    if (not pool.invariant_ok()
+            or yes_total != no_total
+            or yes_total != pool.pairs_in_circulation):
+        raise MarketError(
+            f"Annulation impossible : carnet incohérent "
+            f"(YES={yes_total}, NO={no_total}, paires={pool.pairs_in_circulation}, "
+            f"escrow={pool.escrow_balance}). Aucun remboursement effectué — "
+            f"lancez « verify_invariants » pour audit."
+        )
+
     REFUND_PER_SHARE = (share_value() / 2).quantize(Decimal("0.01"))
     for pos in list(Position.objects.select_for_update().filter(market=market)):
         if pos.quantity > 0:
             payout = (REFUND_PER_SHARE * pos.quantity).quantize(Decimal("0.01"))
+            # Garde défense en profondeur (faille B2) : escrow jamais négatif.
+            if pool.escrow_balance < payout:
+                raise MarketError(
+                    f"Escrow insuffisant lors de l'annulation "
+                    f"({pool.escrow_balance} < {payout}). Marché incohérent."
+                )
             post_entry(
                 wallet=pos.user.wallet,
                 entry_type="SETTLE_WIN",

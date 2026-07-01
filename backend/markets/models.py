@@ -175,6 +175,13 @@ class MarketPool(models.Model):
     class Meta:
         verbose_name = _("Pool de marché")
         verbose_name_plural = _("Pools de marché")
+        constraints = [
+            # Faille B3 : l'escrow ne peut jamais être négatif.
+            models.CheckConstraint(
+                condition=models.Q(escrow_balance__gte=0),
+                name="marketpool_escrow_nonneg",
+            ),
+        ]
 
     def __str__(self):
         return f"Pool « {self.market_id} » · escrow {self.escrow_balance} MGA"
@@ -223,6 +230,22 @@ class Position(models.Model):
         indexes = [
             models.Index(fields=["market", "outcome"]),
             models.Index(fields=["user", "market"]),
+        ]
+        constraints = [
+            # Faille B3 : intégrité d'une position. Les parts détenues et bloquées
+            # sont non-négatives, et on ne bloque jamais plus que ce qu'on détient.
+            models.CheckConstraint(
+                condition=models.Q(quantity__gte=0),
+                name="position_quantity_nonneg",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locked_quantity__gte=0),
+                name="position_locked_nonneg",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locked_quantity__lte=models.F("quantity")),
+                name="position_locked_lte_quantity",
+            ),
         ]
 
     def __str__(self):
@@ -305,6 +328,22 @@ class Order(models.Model):
             # Index du matching : recherche rapide du meilleur ordre opposé.
             models.Index(fields=["market", "outcome", "side", "status", "price"]),
             models.Index(fields=["user", "-created_at"]),
+        ]
+        constraints = [
+            # Faille B3 : intégrité d'un ordre. Quantité demandée > 0, quantité
+            # remplie dans [0, quantité demandée].
+            models.CheckConstraint(
+                condition=models.Q(quantity__gt=0),
+                name="order_quantity_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(filled_quantity__gte=0),
+                name="order_filled_nonneg",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(filled_quantity__lte=models.F("quantity")),
+                name="order_filled_lte_quantity",
+            ),
         ]
 
     def __str__(self):

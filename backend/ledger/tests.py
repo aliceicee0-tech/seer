@@ -126,6 +126,23 @@ class SettleBuyFillTests(TestCase):
         self.assertEqual(u.wallet.entries.first().type, "TRADE_BUY")
         self.assertEqual(u.wallet.entries.first().amount, -Decimal("40"))
 
+    def test_settle_buy_fill_rejects_insufficient_balance(self):
+        """Faille B1 : cost > balance → InsufficientFunds, solde inchangé."""
+        u = _user("0340000021", balance=Decimal("1000"))
+        # Cost supérieur au solde (simule un bug : séquestre libéré ailleurs).
+        with self.assertRaises(InsufficientFunds):
+            settle_buy_fill(
+                wallet=u.wallet, cost=Decimal("1500"),
+                reserve_release=Decimal("0"),
+                entry_type="TRADE_BUY", reference="#BUY-FAIL",
+            )
+        u.wallet.refresh_from_db()
+        # Aucun débit effectué.
+        self.assertEqual(u.wallet.balance, Decimal("1000"))
+        self.assertEqual(u.wallet.locked_balance, Decimal("0"))
+        # Aucune écriture créée (rollback atomique).
+        self.assertFalse(u.wallet.entries.filter(reference="#BUY-FAIL").exists())
+
 
 # --------------------------------------------------------------------------
 # Retrait : transformation blocage → débit
@@ -146,3 +163,18 @@ class WithdrawTests(TestCase):
         self.assertEqual(u.wallet.locked_balance, Decimal("0"))
         self.assertEqual(entry.type, "WITHDRAW")
         self.assertEqual(entry.amount, -Decimal("400"))
+
+    def test_settle_locked_withdraw_rejects_insufficient_balance(self):
+        """Faille B1 : amount > balance → InsufficientFunds, solde inchangé."""
+        u = _user("0340000031", balance=Decimal("1000"))
+        post_entry(
+            wallet=u.wallet, entry_type="WITHDRAW",
+            amount=-Decimal("400"), lock=True, reference="#WDR-LOCK",
+        )
+        # Tente de finaliser un retrait supérieur au solde (incohérence d'état).
+        with self.assertRaises(InsufficientFunds):
+            settle_locked_withdraw(u.wallet, Decimal("1500"), reference="#WDR-FAIL")
+        u.wallet.refresh_from_db()
+        # État inchangé : balance 1000, locked 400.
+        self.assertEqual(u.wallet.balance, Decimal("1000"))
+        self.assertEqual(u.wallet.locked_balance, Decimal("400"))

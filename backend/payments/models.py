@@ -95,6 +95,13 @@ class DepositRequest(models.Model):
             models.Index(fields=["status", "-created_at"]),
             models.Index(fields=["user", "-created_at"]),
         ]
+        constraints = [
+            # Faille B3 : le montant d'un dépôt doit être strictement positif.
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0),
+                name="deposit_amount_positive",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.code} · {self.amount} pts · {self.get_status_display()}"
@@ -148,6 +155,13 @@ class WithdrawRequest(models.Model):
         indexes = [
             models.Index(fields=["status", "-created_at"]),
             models.Index(fields=["user", "-created_at"]),
+        ]
+        constraints = [
+            # Faille B3 : le montant d'un retrait doit être strictement positif.
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0),
+                name="withdraw_amount_positive",
+            ),
         ]
 
     def __str__(self):

@@ -381,6 +381,54 @@ class ResolveMarketTests(TestCase):
         m.pool.refresh_from_db()
         self.assertEqual(m.pool.escrow_balance, Decimal("0"))
 
+    def test_resolve_rejects_incoherent_book_without_paying(self):
+        """Faille B2 : un carnet corrompu est refusé AVANT tout paiement.
+
+        On sabote l'escrow (1 Ar en trop) : l'invariant saute, resolve_market
+        doit lever MarketError SANS créditer qui que ce soit.
+        """
+        a = _user("0340000062", balance=Decimal("1000000"))
+        b = _user("0340000063", balance=Decimal("1000000"))
+        m = _market()
+        mint_pair(user=a, market=m, count=30)
+        mint_pair(user=b, market=m, count=70)
+        a.wallet.refresh_from_db()
+        b.wallet.refresh_from_db()
+        balance_a_before = a.wallet.balance
+        balance_b_before = b.wallet.balance
+        # Sabote l'escrow (simule corruption/bug) : invariant rompu.
+        m.pool.escrow_balance += Decimal("1")
+        m.pool.save(update_fields=["escrow_balance"])
+
+        with self.assertRaises(MarketError):
+            resolve_market(market=m, outcome="YES", admin_user=self.admin)
+
+        # Aucun paiement : soldes intacts.
+        a.wallet.refresh_from_db()
+        b.wallet.refresh_from_db()
+        self.assertEqual(a.wallet.balance, balance_a_before)
+        self.assertEqual(b.wallet.balance, balance_b_before)
+        # Les positions ne sont pas détruites (rollback).
+        self.assertTrue(Position.objects.filter(market=m).exists())
+
+    def test_cancel_rejects_incoherent_book_without_paying(self):
+        """Faille B2 : cancel_market refuse aussi un carnet corrompu."""
+        a = _user("0340000064", balance=Decimal("1000000"))
+        m = _market()
+        mint_pair(user=a, market=m, count=40)
+        a.wallet.refresh_from_db()
+        balance_before = a.wallet.balance
+        # Sabote l'escrow.
+        m.pool.escrow_balance += Decimal("1")
+        m.pool.save(update_fields=["escrow_balance"])
+
+        with self.assertRaises(MarketError):
+            cancel_market(market=m, admin_user=self.admin)
+
+        a.wallet.refresh_from_db()
+        self.assertEqual(a.wallet.balance, balance_before)
+        self.assertTrue(Position.objects.filter(market=m).exists())
+
 
 # ==========================================================================
 # §5 — Vérification d'invariance (cron)

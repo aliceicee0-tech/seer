@@ -45,6 +45,20 @@ class Wallet(models.Model):
     class Meta:
         verbose_name = _("Portefeuille")
         verbose_name_plural = _("Portefeuilles")
+        constraints = [
+            # Barrière de dernier recours (faille B3) : un solde ne peut jamais
+            # devenir négatif, même via un bug applicatif ou une manipulation ORM
+            # directe. Les MinValueValidator ne s'appliquent qu'aux save() complets,
+            # pas aux save(update_fields=[...]) du hot path — d'où le CHECK en base.
+            models.CheckConstraint(
+                condition=models.Q(balance__gte=0),
+                name="wallet_balance_nonneg",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locked_balance__gte=0),
+                name="wallet_locked_balance_nonneg",
+            ),
+        ]
 
     def __str__(self):
         return f"Wallet {self.user_id} · {self.balance} pts"
