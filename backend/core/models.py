@@ -39,10 +39,9 @@ class User(AbstractUser):
     display_name = models.CharField(
         _("Nom affiché"), max_length=80, blank=True
     )
-    is_staff_member = models.BooleanField(
-        _("Staff / Admin"), default=False,
-        help_text=_("Accès au dashboard administrateur."),
-    )
+    # NOTE : l'accès au dashboard admin se base sur `is_staff` (Django natif) via
+    # la propriété `is_platform_admin` ci-dessous. Pas de champ redondant — un
+    # admin = un user avec is_staff=True (ou is_superuser=True).
 
     # Identifiant d'authentification = téléphone
     USERNAME_FIELD = "phone"
