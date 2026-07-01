@@ -1,0 +1,51 @@
+# Caddyfile Nexus — TLS automatique + reverse proxy /api + SPA frontend.
+# DOMAIN et ACME_EMAIL sont fournis via l'environnement docker-compose.
+
+{
+	# Email pour les notifications Let's Encrypt (expiration certificat).
+	email {$ACME_EMAIL:admin@example.com}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# --- API backend : tout /api/* et /admin/* et /healthz → gunicorn ---
+	@backend path /api/* /admin/* /healthz
+	reverse_proxy @backend web:8000 {
+		# Transmet le schéma d'origine (HTTPS) pour que Django active
+		# SECURE_SSL_REDIRECT et les cookies sécurisés.
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# --- Frontend SPA : sert /srv (build Vite) ---
+	root * /srv
+	# try_files : route une route SPA (ex /markets/123) vers index.html
+	# si le fichier n'existe pas, sauf pour /api et /admin (déjà gérés plus haut).
+	try_files {path} /index.html
+
+	# Headers de sécurité sur les assets statiques.
+	header {
+		# Empêche le MIME-sniffing.
+		X-Content-Type-Options nosniff
+		# Anti-clickjacking (renforce le X-Frame-Options: DENY de Django).
+		X-Frame-Options DENY
+		# Referrer limité à même origine.
+		Referrer-Policy same-origin
+		# Permissions navigateur minimales (caméra/mic/géo refusés par défaut).
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		# HSTS (renforce SECURE_HSTS de Django, mais ici sur tous les assets).
+		Strict-Transport-Security "max-age=2592000; includeSubDomains; preload"
+	}
+
+	# Cache long pour les assets hashés (Vite ajoute ?v=hash), court pour l'HTML.
+	@static path /assets/* /icons/* /manifest.webmanifest
+	header @static Cache-Control "public, max-age=31536000, immutable"
+	header /*text/html Cache-Control "no-cache"
+
+	log {
+		output stdout
+		format console
+	}
+}

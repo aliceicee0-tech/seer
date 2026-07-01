@@ -10,6 +10,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 # --- Chemins ---------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -64,6 +65,7 @@ INSTALLED_APPS = [
     # tiers
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
 
         # locales
@@ -126,6 +128,19 @@ def _build_databases():
 
 
 DATABASES = _build_databases()
+
+# B4 — Garde anti-déploiement : en production (DEBUG=False) on EXIGE PostgreSQL.
+# SQLite ignore `select_for_update()`, ce qui désactiverait silencieusement toutes
+# les protections anti-double-dépense du ledger et du moteur de marchés. Cette
+# assertion empêche un déploiement accidentel sur SQLite.
+if not DEBUG:
+    _db_engine = (DATABASES["default"].get("ENGINE") or "").lower()
+    if "sqlite" in _db_engine:
+        raise ImproperlyConfigured(
+            "SQLite est INTERDIT en production : les verrous pessimistes "
+            "(select_for_update) qui protègent l'argent réel y sont ignorés. "
+            "Positionnez DATABASE_URL sur une base PostgreSQL."
+        )
 
 # --- Auth ------------------------------------------------------------------
 AUTH_USER_MODEL = "core.User"
@@ -191,8 +206,14 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    # Durcissement JWT : access court + rotation + blacklist pour permettre la
+    # révocation d'un token volé (durcissement B5). En cas de vol via XSS, la
+    # fenêtre d'exploitation est réduite à 15 min et le refresh volé peut être
+    # invalidé côté serveur.
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
@@ -220,3 +241,51 @@ MOBILE_MONEY_OPERATORS = (
     ("ORANGE", "Orange Money"),
     ("AIRTEL", "Airtel Money"),
 )
+
+# --- Journalisation (logging) ----------------------------------------------
+# Sortie vers stdout pour que Docker/la VM capturent les logs. En production,
+# chaque ligne doit être traçable (timestamp, niveau, logger) : indispensable
+# pour diagnostiquer un incident sur de l'argent réel.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "{asctime} {levelname:8} {name} │ {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "stdout": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+    "root": {
+        "level": "INFO",
+        "handlers": ["stdout"],
+    },
+    "loggers": {
+        "django": {
+            "level": "INFO",
+            "handlers": ["stdout"],
+            "propagate": False,
+        },
+        # Les requêtes SQL en DEBUG seulement (sinon spam énorme en prod).
+        "django.db.backends": {
+            "level": "WARNING",
+            "handlers": ["stdout"],
+            "propagate": False,
+        },
+        # Sécurité : les rejets d'autorisation/suspicieux remontent en WARNING.
+        "django.security": {
+            "level": "WARNING",
+            "handlers": ["stdout"],
+            "propagate": False,
+        },
+        # Logs métier (ledger, markets, payments) en DEBUG en dev, INFO en prod.
+        "ledger": {"level": "INFO", "propagate": True},
+        "markets": {"level": "INFO", "propagate": True},
+        "payments": {"level": "INFO", "propagate": True},
+    },
+}

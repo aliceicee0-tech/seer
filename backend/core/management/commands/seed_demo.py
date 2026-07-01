@@ -5,7 +5,8 @@ Idempotente : ne recrée pas ce qui existe déjà.
 """
 from decimal import Decimal
 
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from core.models import User
@@ -46,6 +47,15 @@ class Command(BaseCommand):
     help = "Génère des données de démonstration : joueurs, marchés, carnet d'ordres."
 
     def handle(self, *args, **options):
+        # Garde anti-prod (M4) : cette commande crée des comptes à mots de passe
+        # dev connus ('demo1234', 'mm1234') crédités de gros soldes. En production
+        # ce serait une faille — on refuse catégoriquement de l'exécuter.
+        if not settings.DEBUG:
+            raise CommandError(
+                "Refusé : seed_demo crée des comptes de démonstration à mots de "
+                "passe connus. Cette commande est réservée au développement "
+                "(DEBUG=True)."
+            )
         now = timezone.now()
 
         # --- Marchés --------------------------------------------------------
