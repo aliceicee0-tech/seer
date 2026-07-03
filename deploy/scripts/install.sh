@@ -51,6 +51,32 @@ fi
 ok "Docker Compose v2 présent."
 
 # =====================================================================
+# 1b. Swap (CRITIQUE sur petit VPS 2 Go)
+# =====================================================================
+# Le build Docker (psycopg2 + Vite) consomme 2-3 Go de RAM. Sans swap, l'OOM
+# killer tue le build. On crée 2 Go de swap si nécessaire (idempotent).
+info "Vérification du swap..."
+SWAP_SIZE_MB=2048
+CURRENT_SWAP=$(swapon --show=SIZE --bytes --noheadings 2>/dev/null | awk '{s+=$1} END {print int(s/1024/1024)}')
+if [[ -z "$CURRENT_SWAP" ]] || [[ "$CURRENT_SWAP" -lt 1024 ]]; then
+    info "Création d'un swap de ${SWAP_SIZE_MB} Mo (évite l'OOM pendant le build Docker)..."
+    if ! sudo swapon --show | grep -q swapfile; then
+        sudo fallocate -l "${SWAP_SIZE_MB}M" /swapfile 2>/dev/null || \
+            sudo dd if=/dev/zero of=/swapfile bs=1M count="$SWAP_SIZE_MB" status=progress
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        # Rendre le swap persistant au reboot.
+        if ! grep -q '/swapfile' /etc/fstab; then
+            echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+        fi
+        ok "Swap de ${SWAP_SIZE_MB} Mo activé (persistant)."
+    fi
+else
+    ok "Swap déjà présent (${CURRENT_SWAP} Mo)."
+fi
+
+# =====================================================================
 # 2. Code source
 # =====================================================================
 info "Code source de Nexus..."

@@ -32,6 +32,9 @@ services:
     # La base n'est pas exposée sur Internet — seul le réseau interne y accède.
     networks:
       - nexus-net
+    # Plafond mémoire : sur un petit VPS (2-4 Go), empêche Postgres de tout
+    # faire swapper. À ajuster si vous montez en RAM.
+    mem_limit: 700m
     logging:
       driver: json-file
       options:
@@ -59,6 +62,7 @@ services:
     # point d'entrée public. (Ne pas publier le port 8000.)
     expose:
       - "8000"
+    mem_limit: 500m
     logging:
       driver: json-file
       options:
@@ -85,6 +89,7 @@ services:
       - web
     networks:
       - nexus-net
+    mem_limit: 200m
     logging:
       driver: json-file
       options:
@@ -114,6 +119,7 @@ services:
       - backups:/backups
       - ./scripts:/scheduler-scripts:ro
     entrypoint: ["/bin/sh", "/scheduler-scripts/scheduler.sh"]
+    mem_limit: 250m
     logging:
       driver: json-file
       options:

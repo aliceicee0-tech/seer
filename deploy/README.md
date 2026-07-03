@@ -1,48 +1,48 @@
-# Déploiement Nexus — Oracle Cloud Always Free
+# Déploiement Nexus — VPS Host4Fun (crypto, sans carte bancaire)
 
-Guide pas-à-pas pour mettre Nexus en ligne **gratuitement** sur Oracle Cloud.
-L'objectif : une app de paris en Ariary accessible 24/7, sans coût d'hébergement,
-avec HTTPS automatique et sauvegardes.
+Guide pas-à-pas pour mettre Nexus en ligne sur un VPS payant en crypto
+(USDT/BTC/ETH), **sans carte bancaire**. L'objectif : une app de paris en
+Ariary accessible 24/7 (jamais en veille), avec HTTPS automatique et sauvegardes.
 
-> **Architecture** : une VM Oracle ARM (gratuite à vie) fait tourner 4 conteneurs
-> Docker — PostgreSQL, Django (gunicorn), Caddy (HTTPS + frontend) et un scheduler
-> (cron de sécurité + backups). Caddy gère le certificat Let's Encrypt seul.
+> **Pourquoi un VPS payant plutôt que le "gratuit" ?** Les offres gratuites sans
+> carte (Render, Fly.io) s'endorment après ~15 min d'inactivité → temps de
+> réveil de 30s et erreurs aléatoires. Pour une app qui gère de l'argent réel,
+> un joueur doit pouvoir trader/retirer à TOUTE heure. Un petit VPS à ~6 €/mois
+> en crypto est le seul chemin fiable sans carte bancaire.
+
+> **Architecture** : une VM Linux fait tourner 4 conteneurs Docker — PostgreSQL,
+> Django (gunicorn), Caddy (HTTPS + frontend) et un scheduler (cron sécurité +
+> backups). Caddy gère le certificat Let's Encrypt seul.
 
 ---
 
 ## Prérequis
 
-- Un **nom de domaine** (~12 $/an — le seul vrai coût). Ex : `nexus.mg` chez Cloudflare.
-- Un **compte Oracle Cloud** (carte bancaire demandée à l'inscription pour vérification, mais **0 € facturé** sur Always Free).
+- Un **nom de domaine** (~12 $/an). Ex : `nexus.mg` chez Cloudflare Registrar
+  (au prix coûtant) ou Namecheap. Payable en crypto via des revendeurs si besoin.
+- Un **VPS Ubuntu** chez [Host4Fun](https://www.host4fun.com/crypto-vps) (ou équivalent
+  acceptant la crypto) : minimum **2 Go RAM / 20 Go disque / Ubuntu 22.04+**.
+  - Paiement accepté : **BTC, ETH, USDT, USDC** (aucune carte requise).
+  - Recommandé : 2-4 Go RAM (~6-8 €/mois). Évitez le 1 Go (trop juste pour Postgres).
+  - Alternatives crypto : [BitLaunch](https://bitlaunch.io/linux-vps/) (BTC/LTC/ETH),
+    [SpaceCore](https://spacecore.pro/en/contabo/) (Contabo en crypto, 8 Go RAM).
 
 ---
 
-## 1. Créer la VM Oracle Cloud (gratuite, à vie)
+## 1. Louer le VPS Host4Fun
 
-1. Inscrivez-vous sur https://www.oracle.com/cloud/free/ (Always Free).
-   - Carte bancaire demandée à l'inscription (vérification), **0 € facturé** en Always Free.
-   - **Choisissez bien la "home region"** (région d'accueil) : c'est définitif et
-     ça influence la disponibilité. Préférez une région moins saturée si possible
-     (ex : Milan, Marseille, Johannesburg plutôt que les US).
-2. Console → **Compute → Instances → Create instance**.
-3. **Image** : `Canonical Ubuntu 22.04` (ou 24.04).
-4. **Shape** : `VM.Standard.A1.Flex` (ARM Ampere) — réglez à **2 OCPU / 12 Go RAM**.
-   - ⚠️ Depuis mi-2025, le quota Always Free est **2 OCPU / 12 Go RAM** (anciennement 4/24).
-   - C'est largement suffisant pour Nexus au lancement (PostgreSQL + gunicorn + Caddy).
-5. **SSH keys** : générez une paire de clés (ou utilisez la vôtre) — **gardez la clé privée**.
-6. **Create**. Notez l'**adresse IP publique** attribuée.
+1. Allez sur https://www.host4fun.com/crypto-vps
+2. Choisissez une offre **Linux KVM** avec **Ubuntu 22.04 (ou 24.04)** :
+   - Minimum : **2 Go RAM / 1 vCPU / 20 Go NVMe**.
+   - Localisation : n'importe quel datacenter (l'Europe — Frankfurt, Amsterdam —
+     donne une bonne latence depuis Madagascar).
+3. Au checkout, payez en **USDT** (ou BTC/ETH/USDC).
+4. Vous recevez par email : **l'adresse IP du VPS + le mot de passe root**.
 
-> ⚠️ **"Out of host capacity"** : la shape ARM A1 est souvent en rupture temporaire.
-> C'est courant, pas grave. Plusieurs solutions :
-> - Réessayez à des heures creuses (tôt le matin, week-end).
-> - Utilisez un [script de "retry" automatique](https://www.community.amperecomputing.com/t/how-to-get-around-the-out-of-capacity-error-on-the-always-free-tier-of-oci/3432).
-> - Changez de région d'accueil (si vous pouvez encore en changer).
+> ℹ️ Sur un VPS classique (Host4Fun, Contabo, Hetzner…), **aucun pare-feu réseau
+> externe** ne bloque par défaut : les ports sont ouverts dès l'achat. Le script
+> `install.sh` active le pare-feu `ufw` (ports 22/80/443 uniquement) automatiquement.
 
-### Ouvrir les ports (80 et 443)
-
-Console → **Networking → Virtual Cloud Networks → (votre VCN) → Security Lists → Default Security List → Add Ingress Rules** :
-- Source `0.0.0.0/0`, Protocol TCP, Destination Port `80` (HTTP).
-- Source `0.0.0.0/0`, Protocol TCP, Destination Port `443` (HTTPS).
 
 ---
 
@@ -218,14 +218,9 @@ docker compose -f deploy/docker-compose.prod.yml restart   # redémarrage simple
 - [x] Backups DB quotidiens (rotation 7 jours).
 - [x] Cron `verify_invariants` actif chaque minute.
 - [x] JWT : access 15 min + rotation + blacklist.
-- [ ] **Pare-feu VM** : en complément, configurez `ufw` (n'ouvrez que 22/80/443) :
-  ```bash
-  sudo ufw default deny incoming
-  sudo ufw allow 22/tcp && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp
-  sudo ufw enable
-  ```
+- [x] **Pare-feu VM** : activé automatiquement par `install.sh` (`ufw`, ports 22/80/443).
 - [ ] **Transferts des backups hors-site** (recommandé) : copiez `/backups` vers
-      un stockage externe (ex : Oracle Object Storage gratuit, ou rclone).
+      un stockage externe (ex : un 2e VPS, un bucket S3-compatible, ou rclone).
 
 ---
 
@@ -244,10 +239,11 @@ docker compose -f deploy/docker-compose.prod.yml restart   # redémarrage simple
 
 | Élément | Coût |
 |---|---|
-| VM Oracle ARM (4 CPU / 24 Go) | **0 €** (Always Free, à vie) |
-| PostgreSQL / Caddy / scheduler | **0 €** (sur la même VM) |
+| VPS Host4Fun (2 Go RAM) | **~6-8 €/mois** (payable en USDT/BTC/ETH, sans carte) |
+| PostgreSQL / Caddy / scheduler | **0 €** (sur le même VPS) |
 | Certificat TLS Let's Encrypt | **0 €** (automatique) |
-| Nom de domaine | **~12 $/an** (seul vrai coût) |
+| Nom de domaine | **~12 $/an** |
 
-**Total : ~1 $/mois.** Aucune surprise de facturation tant que vous restez dans
-les quotas Always Free (vérifiables dans la console Oracle).
+**Total : ~7-9 €/mois.** C'est le prix d'un forfait téléphonique — minuscule
+pour une app qui encaisse des dépôts en Ariary. Paiement 100% crypto (aucune
+carte bancaire requise).

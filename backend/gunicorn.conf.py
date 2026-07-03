@@ -1,16 +1,16 @@
 """Configuration gunicorn pour Nexus en production.
 
-1 worker + 4 threads : choix délibéré pour le lancement gratuit sur Oracle :
+1 worker + 3 threads : calibré pour un petit VPS (2-4 Go RAM, ex. Host4Fun/Contabo).
 - 1 worker suffit au trafic initial et garde le cache LocMem du throttling
   partagé (pas besoin de Redis). Passe en 2-4 workers + Redis quand le trafic
   grimpe.
-- 4 threads pour servir plusieurs requêtes concurrentes (I/O DB).
+- 3 threads pour servir plusieurs requêtes concurrentes (I/O DB).
 """
 import multiprocessing
 
 bind = "0.0.0.0:8000"
 workers = 1
-threads = 4
+threads = 3
 timeout = 30        # un trade/résolution peut prendre quelques secondes
 graceful_timeout = 40
 keepalive = 5
