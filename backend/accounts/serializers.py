@@ -1,6 +1,4 @@
 """Serializers d'authentification et de compte."""
-from decimal import Decimal
-
 from rest_framework import serializers
 
 from core.models import User, normalize_phone
@@ -21,7 +19,11 @@ class RegisterSerializer(serializers.Serializer):
         return phone
 
     def create(self, validated_data):
+        # Avec USERNAME_FIELD="phone", le manager Django attend le téléphone
+        # comme argument positionnel `username`. On le passe ici, le save()
+        # du modèle génère ensuite un username interne (`user_<phone>`).
         return User.objects.create_user(
+            username=validated_data["phone"],
             phone=validated_data["phone"],
             password=validated_data["password"],
             display_name=validated_data.get("display_name", ""),
