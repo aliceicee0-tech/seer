@@ -1,18 +1,18 @@
-# Déploiement Nexus — VPS Host4Fun (crypto, sans carte bancaire)
+# Déploiement Nexus — VPS Linux (Vultr recommandé, paiement crypto)
 
-Guide pas-à-pas pour mettre Nexus en ligne sur un VPS payant en crypto
-(USDT/BTC/ETH), **sans carte bancaire**. L'objectif : une app de paris en
-Ariary accessible 24/7 (jamais en veille), avec HTTPS automatique et sauvegardes.
+Guide pas-à-pas pour mettre Nexus en ligne sur un VPS Linux, payable en
+**crypto** (sans carte bancaire), avec HTTPS automatique et sauvegardes.
 
-> **Pourquoi un VPS payant plutôt que le "gratuit" ?** Les offres gratuites sans
-> carte (Render, Fly.io) s'endorment après ~15 min d'inactivité → temps de
-> réveil de 30s et erreurs aléatoires. Pour une app qui gère de l'argent réel,
-> un joueur doit pouvoir trader/retirer à TOUTE heure. Un petit VPS à ~6 €/mois
-> en crypto est le seul chemin fiable sans carte bancaire.
+> **Pourquoi un VPS payant plutôt que le "gratuit" ?** Les offres gratuites
+> (Render, Fly.io, Oracle Cloud sans réservation) s'endorment après ~15 min
+> d'inactivité → temps de réveil de 30s et erreurs aléatoires. Pour une app
+> qui gère de l'argent réel, un joueur doit pouvoir trader/retirer à TOUTE
+> heure. Un petit VPS à ~6 $/mois en crypto est le seul chemin fiable.
 
 > **Architecture** : une VM Linux fait tourner 4 conteneurs Docker — PostgreSQL,
 > Django (gunicorn), Caddy (HTTPS + frontend) et un scheduler (cron sécurité +
-> backups). Caddy gère le certificat Let's Encrypt seul.
+> backups). Caddy gère le certificat Let's Encrypt seul. Aucune dépendance à un
+> hébergeur spécifique : la stack marche sur tout VPS Ubuntu.
 
 ---
 
@@ -20,29 +20,41 @@ Ariary accessible 24/7 (jamais en veille), avec HTTPS automatique et sauvegardes
 
 - Un **nom de domaine** (~12 $/an). Ex : `nexus.mg` chez Cloudflare Registrar
   (au prix coûtant) ou Namecheap. Payable en crypto via des revendeurs si besoin.
-- Un **VPS Ubuntu** chez [Host4Fun](https://www.host4fun.com/crypto-vps) (ou équivalent
-  acceptant la crypto) : minimum **2 Go RAM / 20 Go disque / Ubuntu 22.04+**.
-  - Paiement accepté : **BTC, ETH, USDT, USDC** (aucune carte requise).
-  - Recommandé : 2-4 Go RAM (~6-8 €/mois). Évitez le 1 Go (trop juste pour Postgres).
-  - Alternatives crypto : [BitLaunch](https://bitlaunch.io/linux-vps/) (BTC/LTC/ETH),
-    [SpaceCore](https://spacecore.pro/en/contabo/) (Contabo en crypto, 8 Go RAM).
+- Un **VPS Ubuntu** (minimum **2 Go RAM / 20 Go disque / Ubuntu 22.04+**),
+  payable en crypto parmi :
+
+  | Hébergeur | Crypto acceptées | Fiabilité | Prix mini | Remarque |
+  |---|---|---|---|---|
+  | **[Vultr](https://www.vultr.com/promo/bare-metal)** ⭐ | BTC, ETH, LTC, USDC | Excellente | ~$6/mo | **Recommandé** : 32 régions, snapshots auto, DDoS protection |
+  | [BitLaunch](https://bitlaunch.io/linux-vps/) | 150+ cryptos | Excellente | ~$8/mo | Revend Vultr/DO/Linode, aucun KYC |
+  | [Cloudzy](https://cloudzy.com/hetzner-vps-alternative/) | BTC, ETH, LTC | Bonne | ~$2.48/mo | Le moins cher, alternative Hetzner |
+  | [Host4Fun](https://www.host4fun.com/crypto-vps) | BTC, ETH, USDT, USDC | Correcte | ~6 €/mois | Petit acteur, fonctionne |
+
+  > **Recommandation** : **Vultr** pour la production (fiabilité + snapshots
+  > automatiques + backups Postgres). Région : **Francfort** ou **Amsterdam**
+  > pour une bonne latence depuis Madagascar (~180ms).
 
 ---
 
-## 1. Louer le VPS Host4Fun
+## 1. Louer le VPS (exemple Vultr)
 
-1. Allez sur https://www.host4fun.com/crypto-vps
-2. Choisissez une offre **Linux KVM** avec **Ubuntu 22.04 (ou 24.04)** :
-   - Minimum : **2 Go RAM / 1 vCPU / 20 Go NVMe**.
-   - Localisation : n'importe quel datacenter (l'Europe — Frankfurt, Amsterdam —
-     donne une bonne latence depuis Madagascar).
-3. Au checkout, payez en **USDT** (ou BTC/ETH/USDC).
-4. Vous recevez par email : **l'adresse IP du VPS + le mot de passe root**.
+1. Créez un compte sur https://www.vultr.com/ et créditez en **Bitcoin / ETH /
+   USDC** (menu Billing → Cryptocurrency).
+2. Déployez une instance (**Products → +**):
+   - **Type** : Cloud Compute — Regular (le moins cher, suffit largement).
+   - **OS** : **Ubuntu 22.04 LTS** (ou 24.04).
+   - **Plan** : **2 Go RAM / 1 vCPU / 55 Go SSD** (~$12/mo) ou **4 Go RAM**
+     (~$24/mo) si vous voulez être tranquille. Le build Docker initial consomme
+     ~2-3 Go (le swap créé par `install.sh` évite l'OOM).
+   - **Region** : Frankfurt (FRA) ou Amsterdam (AMS).
+   - **Additional features** : cochez **Auto Backup** (~$1/mo, sauvegarde VPS
+     hebdo) et **Enable IPv6**.
+3. Notez **l'adresse IP publique** et le **mot de passe root** (ou clé SSH).
 
-> ℹ️ Sur un VPS classique (Host4Fun, Contabo, Hetzner…), **aucun pare-feu réseau
-> externe** ne bloque par défaut : les ports sont ouverts dès l'achat. Le script
-> `install.sh` active le pare-feu `ufw` (ports 22/80/443 uniquement) automatiquement.
-
+> ℹ️ Vultr dispose aussi d'un **Firewall Group** optionnel. Ce n'est pas
+> obligatoire (le script `install.sh` active `ufw` sur la VM), mais vous pouvez
+> en ajouter un côté console Vultr qui n'ouvre que les ports 22/80/443 pour
+> plus de défense en profondeur.
 
 ---
 
@@ -66,9 +78,9 @@ dig +short nexus.mg   # doit renvoyer l'IP de la VM
 
 ## 3. Préparer et installer la VM (en une commande)
 
-Connectez-vous en SSH (utilisateur `ubuntu`) :
+Connectez-vous en SSH (utilisateur `root` ou `ubuntu`) :
 ```bash
-ssh -i <votre-clé-privée> ubuntu@<IP-VM>
+ssh root@<IP-VM>
 ```
 
 > 💡 **Méthode rapide — le script `install.sh`** gère TOUT automatiquement :
@@ -77,8 +89,7 @@ ssh -i <votre-clé-privée> ubuntu@<IP-VM>
 > pare-feu et lance la stack.
 >
 > ```bash
-> # Téléchargez d'abord le script (ou clonez le dépôt, voir méthode manuelle ci-dessous)
-> curl -fsSL https://raw.githubusercontent.com/VOTRE-USER/Nexus2/<branche>/deploy/scripts/install.sh -o install.sh
+> curl -fsSL https://raw.githubusercontent.com/aliceicee0-tech/seer/main/deploy/scripts/install.sh -o install.sh
 > chmod +x install.sh
 > bash install.sh
 > ```
@@ -239,11 +250,12 @@ docker compose -f deploy/docker-compose.prod.yml restart   # redémarrage simple
 
 | Élément | Coût |
 |---|---|
-| VPS Host4Fun (2 Go RAM) | **~6-8 €/mois** (payable en USDT/BTC/ETH, sans carte) |
-| PostgreSQL / Caddy / scheduler | **0 €** (sur le même VPS) |
-| Certificat TLS Let's Encrypt | **0 €** (automatique) |
+| VPS Vultr (2 Go RAM, Francfort) | **~$12/mo** (payable en BTC/ETH/USDC, sans carte) |
+| Auto Backup Vultr (hebdo) | **~$1/mo** (optionnel mais recommandé) |
+| PostgreSQL / Caddy / scheduler | **0 $** (sur le même VPS) |
+| Certificat TLS Let's Encrypt | **0 $** (automatique) |
 | Nom de domaine | **~12 $/an** |
 
-**Total : ~7-9 €/mois.** C'est le prix d'un forfait téléphonique — minuscule
-pour une app qui encaisse des dépôts en Ariary. Paiement 100% crypto (aucune
-carte bancaire requise).
+**Total : ~$13/mo.** C'est minuscule pour une app qui encaisse des dépôts en
+Ariary. Paiement 100% crypto (aucune carte bancaire requise). Si le budget est
+très serré, Cloudzy descend à ~$2.48/mo (fiabilité moindre que Vultr).

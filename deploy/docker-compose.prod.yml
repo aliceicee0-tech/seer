@@ -1,5 +1,8 @@
 # =====================================================================
-#  Nexus — stack de PRODUCTION (Oracle Cloud Always Free)
+#  Nexus — stack de PRODUCTION (VPS Linux : Vultr, BitLaunch, etc.)
+#
+#  100% générique : fonctionne sur tout VPS Ubuntu 22.04+ avec Docker.
+#  Aucune dépendance à un hébergeur spécifique.
 #
 #  4 services :
 #    - db         : PostgreSQL 16 (volume persistant)

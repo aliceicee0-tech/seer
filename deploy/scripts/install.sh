@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  Nexus — installation en UNE commande sur la VM Oracle Cloud.
+#  Nexus — installation en UNE commande sur un VPS Linux (Vultr, etc.).
 #
-#  À lancer sur la VM Oracle (une fois connecté en SSH) :
+#  À lancer sur le VPS (une fois connecté en SSH) :
 #
 #      bash install.sh
 #
+#  Fonctionne sur tout VPS Ubuntu 22.04+ (Vultr, BitLaunch, Cloudzy,
+#  Host4Fun, Contabo…). Aucune dépendance à un hébergeur spécifique.
+#
 #  Ce script :
 #    1. installe Docker + Docker Compose ;
-#    2. clone votre dépôt (ou réutilise un clone existant) ;
-#    3. génère une SECRET_KEY aléatoire forte ;
-#    4. crée .env.prod en vous demandant domaine / numéros Mobile Money ;
-#    5. lance la stack complète (db + web + caddy + scheduler).
+#    2. crée un swap de 2 Go (évite l'OOM pendant le build Docker) ;
+#    3. clone votre dépôt (branche main par défaut) ;
+#    4. génère une SECRET_KEY aléatoire forte + un mot de passe DB ;
+#    5. crée .env.prod en vous demandant domaine / numéros Mobile Money ;
+#    6. active le pare-feu ufw (ports 22/80/443 uniquement) ;
+#    7. lance la stack complète (db + web + caddy + scheduler).
 #
 #  Idempotent : peut être relancé sans risque.
 # =====================================================================
@@ -24,8 +29,8 @@ ok()    { echo -e "${GREEN}✓ $1${NC}"; }
 warn()  { echo -e "${YELLOW}⚠ $1${NC}"; }
 fatal() { echo -e "${RED}✗ $1${NC}" >&2; exit 1; }
 
-# Doit tourner sur Linux (VM Oracle). Pas sur Windows/Mac.
-[[ "$(uname -s)" == "Linux" ]] || fatal "Ce script est conçu pour la VM Linux Oracle."
+# Doit tourner sur Linux (VPS Ubuntu). Pas sur Windows/Mac.
+[[ "$(uname -s)" == "Linux" ]] || fatal "Ce script est conçu pour un VPS Linux (Ubuntu 22.04+)."
 
 PROJECT_DIR="$HOME/nexus"
 cd "$HOME"
@@ -88,8 +93,8 @@ if [[ -d "$PROJECT_DIR/.git" ]]; then
 else
     read -rp "$(echo -e ${CYAN}URL Git de votre dépôt Nexus (https://github.com/...git) :${NC} ")" REPO_URL
     [[ -n "$REPO_URL" ]] || fatal "URL du dépôt requise."
-    read -rp "$(echo -e ${CYAN}Branche [feat/polymarket-engine] :${NC} ")" REPO_BRANCH
-    REPO_BRANCH="${REPO_BRANCH:-feat/polymarket-engine}"
+    read -rp "$(echo -e ${CYAN}Branche [main] :${NC} ")" REPO_BRANCH
+    REPO_BRANCH="${REPO_BRANCH:-main}"
     info "Clonage de $REPO_URL (branche $REPO_BRANCH)..."
     git clone -b "$REPO_BRANCH" "$REPO_URL" "$PROJECT_DIR" || fatal "Échec du clone. Vérifiez l'URL/branche."
     cd "$PROJECT_DIR"
