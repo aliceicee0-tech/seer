@@ -91,15 +91,19 @@ export default function AdminOverviewPage() {
   );
 }
 
+const METRIC_TONE_CLASS: Record<"default" | "amber" | "white", string> = {
+  default: "text-zinc-300 font-semibold",
+  amber: "text-amber-400 font-extrabold",
+  white: "text-white font-extrabold",
+};
+
 function Metric({
   label, value, tone = "default",
 }: {
   label: string; value: number;
   tone?: "default" | "amber" | "white";
 }) {
-  const color =
-    tone === "amber" ? "text-amber-400 font-extrabold" :
-    tone === "white" ? "text-white font-extrabold" : "text-zinc-300 font-semibold";
+  const color = METRIC_TONE_CLASS[tone];
   return (
     <div>
       <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{label}</p>

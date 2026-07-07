@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "../../api/client";
 import type { AdminWithdraw } from "../../api/types";
 import { WithdrawStatusBadge } from "../../components/admin";
+import { ConfirmDialog, PromptDialog } from "../../components/Modal";
 import { EmptyState, Spinner } from "../../components/ui";
 import { cx, dateFr, mga } from "../../lib/format";
 
@@ -15,12 +16,19 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "", label: "Tous" },
 ];
 
+type DialogState =
+  | { kind: "pay"; withdraw: AdminWithdraw }
+  | { kind: "reject"; withdraw: AdminWithdraw }
+  | null;
+
 export default function AdminWithdrawalsPage() {
   const [params, setParams] = useSearchParams();
   const filter = (params.get("status") as Filter) ?? "PENDING";
   const [items, setItems] = useState<AdminWithdraw[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogState>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -36,31 +44,25 @@ export default function AdminWithdrawalsPage() {
     setParams(params, { replace: true });
   };
 
-  async function act(w: AdminWithdraw, action: "pay" | "reject") {
-    if (action === "pay") {
-      const ref = window.prompt(
-        `Effectue le transfert ${w.operator_label} de ${mga(w.amount)} MGA vers ${w.recipient_phone},\n` +
-        `puis saisis la référence du SMS opérateur (optionnel) :`,
-        w.operator_ref || ""
-      );
-      if (ref === null) return;  // annulé
-      setBusyId(w.id);
-      try {
-        await api.admin.payWithdraw(w.id, ref);
-        await load();
-      } catch (e) {
-        alert((e as Error).message ?? "Paiement échoué");
-      } finally {
-        setBusyId(null);
-      }
-      return;
+  async function pay(w: AdminWithdraw, ref: string) {
+    setBusyId(w.id);
+    try {
+      await api.admin.payWithdraw(w.id, ref);
+      await load();
+    } catch (e) {
+      setError((e as Error).message ?? "Paiement échoué");
+    } finally {
+      setBusyId(null);
     }
+  }
+
+  async function reject(w: AdminWithdraw) {
     setBusyId(w.id);
     try {
       await api.admin.rejectWithdraw(w.id);
       await load();
     } catch (e) {
-      alert((e as Error).message ?? "Action échouée");
+      setError((e as Error).message ?? "Action échouée");
     } finally {
       setBusyId(null);
     }
@@ -74,6 +76,13 @@ export default function AdminWithdrawalsPage() {
           Transférez l'argent depuis votre téléphone, puis marquez comme payé
         </p>
       </header>
+
+      {error && (
+        <div className="rounded-xl border border-rose-800 bg-rose-950/40 px-4 py-3 text-xs font-semibold text-rose-300 flex items-start justify-between gap-3">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-200 font-black">✕</button>
+        </div>
+      )}
 
       <div className="flex gap-1 overflow-x-auto rounded-xl bg-zinc-950 border border-zinc-900 p-1">
         {FILTERS.map((f) => {
@@ -128,14 +137,14 @@ export default function AdminWithdrawalsPage() {
                   <div className="flex gap-2">
                     <button
                       disabled={busyId === w.id}
-                      onClick={() => act(w, "reject")}
+                      onClick={() => setDialog({ kind: "reject", withdraw: w })}
                       className="btn bg-zinc-950 hover:bg-rose-950/20 text-rose-450 border border-zinc-850 hover:border-rose-900/30 px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
                     >
                       Rejeter
                     </button>
                     <button
                       disabled={busyId === w.id}
-                      onClick={() => act(w, "pay")}
+                      onClick={() => setDialog({ kind: "pay", withdraw: w })}
                       className="btn bg-white hover:bg-zinc-200 text-black px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
                     >
                       Payer
@@ -147,6 +156,42 @@ export default function AdminWithdrawalsPage() {
           ))}
         </div>
       )}
+
+      <PromptDialog
+        open={dialog?.kind === "pay"}
+        onClose={() => setDialog(null)}
+        onSubmit={(ref) => {
+          if (dialog?.kind === "pay") pay(dialog.withdraw, ref);
+        }}
+        title="Confirmer le paiement"
+        message={
+          dialog?.kind === "pay" ? (
+            <>
+              Effectue le transfert {dialog.withdraw.operator_label} de {mga(dialog.withdraw.amount)} MGA vers{" "}
+              {dialog.withdraw.recipient_phone}, puis saisis la référence du SMS opérateur (optionnel) :
+            </>
+          ) : null
+        }
+        defaultValue={dialog?.kind === "pay" ? dialog.withdraw.operator_ref ?? "" : ""}
+        placeholder="Référence SMS opérateur"
+        submitLabel="Marquer payé"
+      />
+
+      <ConfirmDialog
+        open={dialog?.kind === "reject"}
+        onClose={() => setDialog(null)}
+        onConfirm={() => {
+          if (dialog?.kind === "reject") reject(dialog.withdraw);
+        }}
+        title="Rejeter le retrait"
+        message={
+          dialog?.kind === "reject" ? (
+            <>Rejeter la demande de retrait de {mga(dialog.withdraw.amount)} MGA vers {dialog.withdraw.recipient_phone} ? Le montant sera recrédité au joueur.</>
+          ) : null
+        }
+        confirmLabel="Rejeter"
+        danger
+      />
     </div>
   );
 }

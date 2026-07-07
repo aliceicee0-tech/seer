@@ -34,9 +34,9 @@ TITLES = [
      Category.SOCIAL, "https://www.youtube.com/watch?v=demo"),
     # --- Météo ---
     ("Le cyclone « Batsirai » touchera-t-il Toamasina avant le 20 juillet ?",
-     Category.WEATHER, "http://www.meteomadagascar.mg/cyclones"),
+     Category.WEATHER, "https://www.meteomadagascar.mg/cyclones"),
     ("La température à Toliara dépassera-t-elle 38°C avant le 15 juillet ?",
-     Category.WEATHER, "http://www.meteomadagascar.mg/temperature"),
+     Category.WEATHER, "https://www.meteomadagascar.mg/temperature"),
     # --- Tendances ---
     ("Le groupe Facebook « Ankapobeny » franchira-t-il 200 000 membres avant le 25 juillet ?",
      Category.TRENDING, "https://www.facebook.com/groups/ankapobeny"),

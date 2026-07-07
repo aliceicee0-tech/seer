@@ -13,6 +13,13 @@ const OPERATORS: { key: Operator; label: string }[] = [
   { key: "AIRTEL", label: "Airtel Money" },
 ];
 
+// Ton visuel selon le statut du retrait (vert = payé, rouge = rejeté, ambre sinon).
+const WITHDRAW_TONE: Record<WithdrawRequest["status"], "yes" | "no" | "warn"> = {
+  PENDING: "warn",
+  PAID: "yes",
+  REJECTED: "no",
+};
+
 export default function WithdrawPage() {
   const { user } = useAuth();
   const [list, setList] = useState<WithdrawRequest[]>([]);
@@ -123,12 +130,7 @@ export default function WithdrawPage() {
               </p>
               <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mt-1">{dateFr(w.created_at)}</p>
             </div>
-            <Badge
-              tone={
-                w.status === "PAID" ? "yes"
-                  : w.status === "REJECTED" ? "no" : "warn"
-              }
-            >
+            <Badge tone={WITHDRAW_TONE[w.status]}>
               {w.status_label}
             </Badge>
           </div>
@@ -138,8 +140,10 @@ export default function WithdrawPage() {
   );
 }
 
+const HTTP_BAD_REQUEST = 400;  // solde insuffisant côté API
+
 function humanize(e: unknown): string {
-  if (e instanceof ApiError && e.status === 400) {
+  if (e instanceof ApiError && e.status === HTTP_BAD_REQUEST) {
     return "Solde disponible insuffisant.";
   }
   return "Demande impossible.";

@@ -1,6 +1,5 @@
 """Vues de l'API marchés (moteur Polymarket)."""
 from collections import OrderedDict
-from decimal import Decimal
 
 from django.db.models import F, Q, Sum
 from rest_framework import generics, status

@@ -7,6 +7,10 @@ import type {
 
 const BASE = "/api";
 
+// Codes de statut HTTP utilisés par le client API.
+const HTTP_UNAUTHORIZED = 401;  // token expiré → tente un refresh
+const HTTP_NO_CONTENT = 204;     // succès sans corps (DELETE, etc.)
+
 // --- Gestion des tokens ----------------------------------------------------
 const ACCESS_KEY = "seer_access";
 const REFRESH_KEY = "seer_refresh";
@@ -52,7 +56,7 @@ async function request<T>(
 
   const res = await fetch(`${BASE}${path}`, { ...opts, headers });
 
-  if (res.status === 401 && token.refresh) {
+  if (res.status === HTTP_UNAUTHORIZED && token.refresh) {
     // Tente un rafraîchissement silencieux une fois
     const refreshed = await tryRefresh();
     if (refreshed) {
@@ -73,7 +77,7 @@ async function request<T>(
     throw new ApiError(`Erreur ${res.status}`, res.status, detail);
   }
 
-  if (res.status === 204) return {} as T;
+  if (res.status === HTTP_NO_CONTENT) return {} as T;
   return (await res.json()) as T;
 }
 

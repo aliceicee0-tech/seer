@@ -21,6 +21,7 @@ export default function AdminDepositsPage() {
   const [items, setItems] = useState<AdminDeposit[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -43,7 +44,7 @@ export default function AdminDepositsPage() {
       else await api.admin.rejectDeposit(d.id);
       await load();
     } catch (e) {
-      alert((e as Error).message ?? "Action échouée");
+      setError((e as Error).message ?? "Action échouée");
     } finally {
       setBusyId(null);
     }
@@ -57,6 +58,13 @@ export default function AdminDepositsPage() {
           Vérifiez le SMS opérateur, puis approuvez pour créditer le joueur
         </p>
       </header>
+
+      {error && (
+        <div className="rounded-xl border border-rose-800 bg-rose-950/40 px-4 py-3 text-xs font-semibold text-rose-300 flex items-start justify-between gap-3">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-200 font-black">✕</button>
+        </div>
+      )}
 
       <div className="flex gap-1 overflow-x-auto rounded-xl bg-zinc-950 border border-zinc-900 p-1">
         {FILTERS.map((f) => {

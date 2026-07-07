@@ -2,9 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { Market } from "../../api/types";
 import { MarketStatusBadge } from "../../components/admin";
+import { ConfirmDialog } from "../../components/Modal";
 import { EmptyState, Spinner } from "../../components/ui";
 import { cx, dateFr, mga } from "../../lib/format";
 import MarketFormDialog, { type MarketFormResult } from "./MarketFormDialog";
+
+type ConfirmState =
+  | { kind: "resolve"; market: Market; outcome: "YES" | "NO" }
+  | { kind: "cancel"; market: Market }
+  | null;
 
 export default function AdminMarketsPage() {
   const [items, setItems] = useState<Market[]>([]);
@@ -12,6 +18,8 @@ export default function AdminMarketsPage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [editing, setEditing] = useState<Market | null>(null);
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmState>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -21,28 +29,24 @@ export default function AdminMarketsPage() {
   useEffect(() => { load(); }, [load]);
 
   async function resolve(m: Market, outcome: "YES" | "NO") {
-    if (!confirm(`Résoudre « ${m.question.slice(0, 50)}… » en ${outcome} et payer les gagnants ?`))
-      return;
     setBusyId(m.id);
     try {
       await api.admin.resolveMarket(m.id, outcome);
       await load();
     } catch (e) {
-      alert((e as Error).message ?? "Résolution échouée");
+      setError(humanize(e, "Résolution échouée"));
     } finally {
       setBusyId(null);
     }
   }
 
   async function cancel(m: Market) {
-    if (!confirm(`Annuler « ${m.question.slice(0, 50)}… » et rembourser toutes les mises ?`))
-      return;
     setBusyId(m.id);
     try {
       await api.admin.cancelMarket(m.id);
       await load();
     } catch (e) {
-      alert((e as Error).message ?? "Annulation échouée");
+      setError(humanize(e, "Annulation échouée"));
     } finally {
       setBusyId(null);
     }
@@ -56,7 +60,7 @@ export default function AdminMarketsPage() {
       setCreating(false);
       await load();
     } catch (e) {
-      alert((e as Error).message ?? "Enregistrement échoué");
+      setError(humanize(e, "Enregistrement échoué"));
     }
   }
 
@@ -71,6 +75,13 @@ export default function AdminMarketsPage() {
           + Nouveau
         </button>
       </header>
+
+      {error && (
+        <div className="rounded-xl border border-rose-800 bg-rose-950/40 px-4 py-3 text-xs font-semibold text-rose-300 flex items-start justify-between gap-3">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-200 font-black">✕</button>
+        </div>
+      )}
 
       {loading ? (
         <Spinner />
@@ -115,14 +126,14 @@ export default function AdminMarketsPage() {
                   <>
                     <button
                       disabled={busyId === m.id}
-                      onClick={() => resolve(m, "YES")}
+                      onClick={() => setConfirm({ kind: "resolve", market: m, outcome: "YES" })}
                       className="btn-success px-3 py-2 text-xs"
                     >
                       Résoudre OUI
                     </button>
                     <button
                       disabled={busyId === m.id}
-                      onClick={() => resolve(m, "NO")}
+                      onClick={() => setConfirm({ kind: "resolve", market: m, outcome: "NO" })}
                       className="btn-success px-3 py-2 text-xs"
                     >
                       Résoudre NON
@@ -132,7 +143,7 @@ export default function AdminMarketsPage() {
                 {m.status !== "RESOLVED" && m.status !== "CANCELLED" && (
                   <button
                     disabled={busyId === m.id}
-                    onClick={() => cancel(m)}
+                    onClick={() => setConfirm({ kind: "cancel", market: m })}
                     className="btn-danger px-3 py-2 text-xs"
                   >
                     Annuler
@@ -151,6 +162,45 @@ export default function AdminMarketsPage() {
           onSubmit={submitForm}
         />
       )}
+
+      <ConfirmDialog
+        open={confirm?.kind === "resolve"}
+        onClose={() => setConfirm(null)}
+        onConfirm={() => {
+          if (confirm?.kind === "resolve") resolve(confirm.market, confirm.outcome);
+        }}
+        title="Résoudre le marché"
+        message={
+          confirm?.kind === "resolve" ? (
+            <>
+              Résoudre « {confirm.market.question.slice(0, 50)}… » en{" "}
+              <b>{confirm.outcome}</b> et payer les gagnants ?
+            </>
+          ) : null
+        }
+        confirmLabel={`Résoudre ${confirm?.kind === "resolve" ? confirm.outcome : ""}`}
+      />
+
+      <ConfirmDialog
+        open={confirm?.kind === "cancel"}
+        onClose={() => setConfirm(null)}
+        onConfirm={() => {
+          if (confirm?.kind === "cancel") cancel(confirm.market);
+        }}
+        title="Annuler le marché"
+        message={
+          confirm?.kind === "cancel" ? (
+            <>Annuler « {confirm.market.question.slice(0, 50)}… » et rembourser toutes les mises ?</>
+          ) : null
+        }
+        confirmLabel="Annuler le marché"
+        danger
+      />
     </div>
   );
+}
+
+function humanize(e: unknown, fallback: string): string {
+  if (e instanceof Error && e.message) return e.message;
+  return fallback;
 }

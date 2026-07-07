@@ -4,8 +4,6 @@ Réutilisent les serializers métier quand c'est possible, et ajoutent
 ce dont l'admin a besoin : infos du joueur sur chaque demande, écritures
 comptables élargies, et un formulaire de création/édition de marché.
 """
-from decimal import Decimal
-
 from rest_framework import serializers
 
 from core.models import User

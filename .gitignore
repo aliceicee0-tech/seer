@@ -50,6 +50,7 @@ frontend/.vite/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.tsbuildinfo
 
 # PWA générés
 frontend/dev-dist/
