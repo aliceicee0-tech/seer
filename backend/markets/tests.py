@@ -352,6 +352,62 @@ class ResolveMarketTests(TestCase):
         # A ne possédait plus de YES → rien reçu ; NO détruit sans paiement.
         self.assertEqual(a.wallet.balance, balance_before_resolve)
 
+    def test_resolve_succeeds_with_other_players_open_orders(self):
+        """Régression C1 : resolve_market ne doit pas planter quand des joueurs
+        ont des ordres ouverts sur le carnet. Avant le fix, cancel_order
+        refusait d'annuler les ordres d'autrui et faisait rollbacker toute la
+        résolution → aucun marché avec ordres ouverts ne pouvait être réglé.
+        """
+        a = _user("0340000061", balance=Decimal("1000000"))
+        b = _user("0340000062", balance=Decimal("1000000"))
+        m = _market()
+        mint_pair(user=a, market=m, count=50)
+        mint_pair(user=b, market=m, count=50)
+
+        # B laisse un ordre d'achat ouvert sur le carnet (non croisé).
+        place_order(user=b, market=m, side="BUY", outcome="NO",
+                    order_type="LIMIT", quantity=10, price=Decimal("1000"))
+        b.wallet.refresh_from_db()
+        locked_before = b.wallet.locked_balance
+        self.assertGreater(locked_before, Decimal("0"))  # séquestre actif
+
+        # La résolution doit réussir malgré l'ordre ouvert de B.
+        resolve_market(market=m, outcome="YES", admin_user=self.admin)
+        m.refresh_from_db()
+        self.assertEqual(m.status, "RESOLVED")
+        self.assertEqual(m.outcome, "YES")
+
+        # L'ordre ouvert de B est annulé → son séquestre est libéré.
+        b.wallet.refresh_from_db()
+        self.assertEqual(b.wallet.locked_balance, Decimal("0"))
+        # L'ordre est marqué CANCELLED (et non FILLED).
+        self.assertFalse(
+            Order.objects.filter(
+                user=b, market=m, status__in=[Order.Status.OPEN, Order.Status.PARTIAL]
+            ).exists()
+        )
+
+    def test_cancel_market_succeeds_with_other_players_open_orders(self):
+        """Régression C1 (côté annulation) : cancel_market aussi doit purger les
+        ordres ouverts d'autrui sans planter.
+        """
+        a = _user("0340000063", balance=Decimal("1000000"))
+        b = _user("0340000064", balance=Decimal("1000000"))
+        m = _market()
+        mint_pair(user=a, market=m, count=50)
+        mint_pair(user=b, market=m, count=50)
+        # Ordre ouvert de B sur le carnet.
+        place_order(user=b, market=m, side="BUY", outcome="YES",
+                    order_type="LIMIT", quantity=10, price=Decimal("1000"))
+
+        # L'annulation doit réussir et rembourser tout le monde à SHARE_VALUE/2.
+        cancel_market(market=m, admin_user=self.admin)
+        m.refresh_from_db()
+        self.assertEqual(m.status, "CANCELLED")
+        # Le séquestre de B est libéré via la purge du carnet.
+        b.wallet.refresh_from_db()
+        self.assertEqual(b.wallet.locked_balance, Decimal("0"))
+
     def test_cannot_resolve_already_resolved(self):
         a = _user("0340000051", balance=Decimal("100000"))
         m = _market()

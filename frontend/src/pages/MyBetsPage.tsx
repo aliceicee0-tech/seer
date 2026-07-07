@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { Order, OrderStatus, Position } from "../api/types";
 import { Badge, EmptyState, Spinner } from "../components/ui";
-import { cx, dateFr, mga } from "../lib/format";
+import { arPrice, cx, dateFr, mga } from "../lib/format";
 import { Layers, ListOrdered } from "lucide-react";
 
 type Tab = "positions" | "orders";
@@ -107,7 +107,7 @@ function PositionCard({ p }: { p: Position }) {
         {/* Stats principales */}
         <div className="mt-3.5 grid grid-cols-4 gap-2 text-center">
           <Metric label="Taille" value={`${p.quantity}`} />
-          <Metric label="Prix moy." value={avg ? `${Math.round(avg * 100)}¢` : "—"} />
+          <Metric label="Prix moy." value={avg ? `${arPrice(avg)} Ar` : "—"} />
           <Metric
             label="Valeur"
             value={last ? `${mga(String(last * p.quantity))}` : "—"}
@@ -177,7 +177,7 @@ function OrderCard({ o }: { o: Order }) {
 
         <div className="mt-3 flex items-center justify-between text-xs text-zinc-500">
           <span className="font-semibold text-[11px] uppercase tracking-wider text-zinc-450">
-            {o.order_type === "LIMIT" ? `Limite ${o.price ? `${Math.round(parseFloat(o.price) * 100)}¢` : ""}` : "Au marché"} ·{" "}
+            {o.order_type === "LIMIT" ? `Limite ${o.price ? `${arPrice(o.price)} Ar` : ""}` : "Au marché"} ·{" "}
             <b className="text-zinc-700">{o.filled_quantity}/{o.quantity}</b>
           </span>
           {o.status === "OPEN" && (

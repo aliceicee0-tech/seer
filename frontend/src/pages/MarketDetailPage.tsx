@@ -639,7 +639,7 @@ function OrderBookView({ book }: { book: OrderBook[] | null }) {
             </h3>
             {ob.last_price && (
               <span className="text-[10px] font-bold text-zinc-500">
-                Dernier : {Math.round(parseFloat(ob.last_price) * 100)}¢
+                Dernier : {arPrice(ob.last_price)} Ar
               </span>
             )}
           </div>
@@ -652,7 +652,7 @@ function OrderBookView({ book }: { book: OrderBook[] | null }) {
           )}
           {ob.spread && (
             <p className="text-center text-[9px] text-zinc-400 uppercase tracking-wider">
-              Spread : {Math.round(parseFloat(ob.spread) * 100)}¢
+              Spread : {arPrice(ob.spread)} Ar
             </p>
           )}
         </div>
@@ -674,7 +674,7 @@ function BookSide({
         {rows.slice(0, 6).map((r, i) => (
           <div key={i} className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-1.5">
             <span className={cx("font-display text-xs font-black", tone === "yes" ? "text-blue-600" : "text-rose-600")}>
-              {Math.round(parseFloat(r.price) * 100)}¢
+              {arPrice(r.price)} Ar
             </span>
             <span className="text-[11px] font-semibold text-zinc-600">{r.quantity}</span>
           </div>

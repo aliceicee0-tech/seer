@@ -4,7 +4,7 @@ import type { Market } from "../../api/types";
 import { MarketStatusBadge } from "../../components/admin";
 import { ConfirmDialog } from "../../components/Modal";
 import { EmptyState, Spinner } from "../../components/ui";
-import { cx, dateFr, mga } from "../../lib/format";
+import { arPrice, cx, dateFr, mga } from "../../lib/format";
 import MarketFormDialog, { type MarketFormResult } from "./MarketFormDialog";
 
 type ConfirmState =
@@ -105,7 +105,7 @@ export default function AdminMarketsPage() {
                 <span>
                   Prix :{" "}
                   <b className="text-zinc-200 font-bold">
-                    {m.last_price ? `${Math.round(parseFloat(m.last_price) * 100)}¢` : "—"}
+                    {m.last_price ? `${arPrice(m.last_price)} Ar` : "—"}
                   </b>
                   {" · "}
                   <span className="text-zinc-400">OUI {m.proba_yes}</span>

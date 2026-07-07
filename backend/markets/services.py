@@ -440,17 +440,15 @@ def _execute_fill(*, market, outcome, aggressor: Order, resting: Order,
     )
 
 
-@transaction.atomic
-def cancel_order(*, order: Order, user) -> Order:
-    """Annule un ordre ouvert : rembourse le séquestre achat ou débloque les parts.
+def _release_order_resources(order: Order, *, by_user) -> Order:
+    """Libère le séquestre (achat LIMIT) ou débloque les parts (vente) d'un ordre.
 
-    Les ordres déjà partiellement exécutés conservent leur `filled_quantity`.
+    cœur métier de l'annulation, sans la garde de propriété : utilisé à la fois
+    par le joueur (via ``cancel_order``) et par l'admin lors de la résolution /
+    annulation d'un marché (qui doit purger le carnet des ordres d'autrui).
+
+    Les ordres déjà partiellement exécutés conservent leur ``filled_quantity``.
     """
-    if order.user_id != user.id:
-        raise MarketError("Vous ne pouvez annuler que vos propres ordres.")
-    if order.status in (Order.Status.FILLED, Order.Status.CANCELLED, Order.Status.EXPIRED):
-        raise MarketError("Cet ordre n'est plus annulable.")
-
     order = Order.objects.select_for_update().get(pk=order.pk)
     remaining = order.remaining_quantity
 
@@ -463,7 +461,7 @@ def cancel_order(*, order: Order, user) -> Order:
             amount=Decimal("0"),  # écriture de trace (le solde ne change pas)
             reference=f"#RFD-O{order.id}",
             note=f"Annulation ordre achat — libération séquestre {remaining}× {order.price}",
-            created_by=user,
+            created_by=by_user,
         )
     elif order.side == Order.Side.SELL:
         pos = _get_position_locked(order.user, order.market, order.outcome)
@@ -473,6 +471,21 @@ def cancel_order(*, order: Order, user) -> Order:
     order.status = Order.Status.CANCELLED
     order.save(update_fields=["status", "updated_at"])
     return order
+
+
+@transaction.atomic
+def cancel_order(*, order: Order, user) -> Order:
+    """Annule un ordre ouvert : rembourse le séquestre achat ou débloque les parts.
+
+    Garde de propriété : un joueur ne peut annuler que SES ordres. La résolution
+    / annulation de marché (qui purge le carnet de tous les joueurs) passe par
+    ``_release_order_resources`` directement, sans cette garde.
+    """
+    if order.user_id != user.id:
+        raise MarketError("Vous ne pouvez annuler que vos propres ordres.")
+    if order.status in (Order.Status.FILLED, Order.Status.CANCELLED, Order.Status.EXPIRED):
+        raise MarketError("Cet ordre n'est plus annulable.")
+    return _release_order_resources(order, by_user=user)
 
 
 def _refresh_order_status(order: Order):
@@ -544,7 +557,9 @@ def resolve_market(*, market, outcome: str, admin_user) -> Market:
     for order in list(market.orders.filter(
         status__in=[Order.Status.OPEN, Order.Status.PARTIAL]
     )):
-        cancel_order(order=order, user=admin_user)
+        # Purge du carnet : l'admin annule les ordres de TOUS les joueurs
+        # (passe par _release_order_resources, sans la garde de propriété).
+        _release_order_resources(order, by_user=admin_user)
 
     # 2 & 3) Paiement des gagnants + destruction des perdants
     # PRE-CHECK (faille B2) : ne payer PERSONNE si le carnet est incohérent.
@@ -630,7 +645,9 @@ def cancel_market(*, market, admin_user) -> Market:
     for order in list(market.orders.filter(
         status__in=[Order.Status.OPEN, Order.Status.PARTIAL]
     )):
-        cancel_order(order=order, user=admin_user)
+        # Purge du carnet : l'admin annule les ordres de TOUS les joueurs
+        # (passe par _release_order_resources, sans la garde de propriété).
+        _release_order_resources(order, by_user=admin_user)
 
     # Rembourse chaque part à la moitié de sa valeur (neutralité : pas de gagnant).
     # Comme YES_en_circulation == NO_en_circulation == paires en circulation,
