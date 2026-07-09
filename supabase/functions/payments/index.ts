@@ -1,6 +1,6 @@
 // ===========================================================================
 //  Edge Function : payments
-//  GET  /functions/v1/payments/mobile-money   — infos opérateurs (config)
+//  GET  /functions/v1/payments/mobile-money   — infos opérateurs (PUBLIC)
 //  GET  /functions/v1/payments/deposits       — mes demandes de dépôt
 //  POST /functions/v1/payments/deposits       — créer + déclarer un dépôt
 //  GET  /functions/v1/payments/withdrawals    — mes retraits
