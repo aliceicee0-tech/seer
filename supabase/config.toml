@@ -13,7 +13,6 @@ max_rows = 1000
 
 [db]
 port = 54322
-shadow_project_id = ""
 major_version = 15
 
 [db.pooler]
@@ -28,8 +27,6 @@ enabled = true
 site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["https://nexus.mg"]
 jwt_expiry = 3600           # 1 heure (access token)
-refresh_token_rotation = true
-security_refresh_token_refresh_interval = 86400  # 24h
 enable_signup = true
 enable_anonymous_sign_ins = false
 
@@ -41,10 +38,6 @@ double_confirm_changes = false
 enable_signup = true
 enable_confirmations = false
 template = "Votre code Nexus: {{ .Code }}"
-
-[auth.phone]
-enable_signup = true
-enable_confirmations = false
 
 [auth.hooks]
 
