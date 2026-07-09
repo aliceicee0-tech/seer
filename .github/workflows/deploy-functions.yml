@@ -7,6 +7,7 @@
 #   SUPABASE_ACCESS_TOKEN  — créé sur https://supabase.com/dashboard/account/tokens
 #
 # Le project-ref est public (présent dans l'URL), il n'est pas un secret.
+# nb: secret SUPABASE_ACCESS_TOKEN ajouté le 2026-07-10.
 
 name: Deploy Edge Functions
 
