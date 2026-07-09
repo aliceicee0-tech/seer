@@ -67,3 +67,7 @@ Thumbs.db
 
 # Docker
 postgres-data/
+
+# Supabase CLI — cache local de liaison (contient des métadonnées de projet)
+supabase/.temp/
+supabase/.branches/

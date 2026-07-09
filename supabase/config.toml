@@ -1,0 +1,60 @@
+# ===========================================================================
+#  Nexus v2 — Configuration du projet Supabase
+#  (utilisé par la CLI : supabase link / db push / functions deploy)
+# ===========================================================================
+project_id = "nexus"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_project_id = ""
+major_version = 15
+
+[db.pooler]
+enabled = true
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["https://nexus.mg"]
+jwt_expiry = 3600           # 1 heure (access token)
+refresh_token_rotation = true
+security_refresh_token_refresh_interval = 86400  # 24h
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = false       # Nexus auth par téléphone, pas email
+double_confirm_changes = false
+
+[auth.sms]                   # Provider téléphone (Mobile Money)
+enable_signup = true
+enable_confirmations = false
+template = "Votre code Nexus: {{ .Code }}"
+
+[auth.phone]
+enable_signup = true
+enable_confirmations = false
+
+[auth.hooks]
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[edge_runtime]
+enabled = true
+inspector_port = 8083
+
+[analytics]
+enabled = false
