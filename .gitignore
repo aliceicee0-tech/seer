@@ -71,3 +71,6 @@ postgres-data/
 # Supabase CLI — cache local de liaison (contient des métadonnées de projet)
 supabase/.temp/
 supabase/.branches/
+
+# ZCode agent (artefacts locaux)
+.zcode/
