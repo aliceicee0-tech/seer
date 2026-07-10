@@ -12,23 +12,37 @@
 --    net joueur  = 45 000 Ar → wallet joueur   (écriture SETTLE_WIN)
 --    escrow débité = 50 000 Ar (5 000 + 45 000)
 --
---  Paramétrage (settings DB, comme app.share_value) :
---    app.commission_rate     — taux en % (défaut 10)
---    app.platform_user_id    — UUID du user admin qui reçoit les commissions
---
---  Si app.platform_user_id est NULL/non configuré → aucune commission
---  prélevée (rétro-compatible, la plateforme ne prend rien).
+--  Implémentation : une table platform_config (singleton id=1) stocke le taux
+--  et l'UUID admin destinataire. On évite `ALTER DATABASE SET` qui nécessite
+--  le rôle propriétaire (non disponible dans le SQL Editor Supabase).
+--  Bonus : le taux est modifiable à chaud (UPDATE sur la ligne), et pourra
+--  être exposé dans une page réglages admin.
 -- ===========================================================================
 
--- --- Settings globaux (modifiables via ALTER DATABASE à chaud) --------------
-alter database postgres set app.commission_rate = '10';
--- app.platform_user_id doit être défini manuellement (voir DEPLOY.md) :
---   alter database postgres set app.platform_user_id = '<uuid_admin>';
+-- --- Table de configuration (singleton : une seule ligne, id=1) ------------
+create table if not exists public.platform_config (
+  id                smallint primary key default 1,
+  commission_rate   numeric not null default 10,
+  platform_user_id  uuid,
+  constraint platform_config_singleton check (id = 1)
+);
+
+-- RLS : seuls les admins lisent/écrivent la config plateforme.
+alter table public.platform_config enable row level security;
+drop policy if exists platform_config_admin on public.platform_config;
+create policy platform_config_admin on public.platform_config
+  for all using (public.is_platform_admin()) with check (public.is_platform_admin());
+
+-- Ligne par défaut (à updater avec le bon UUID admin en prod).
+insert into public.platform_config (id, commission_rate, platform_user_id)
+values (1, 10, null)
+on conflict (id) do nothing;
 
 
 -- ===========================================================================
 --  resolve_market v2 — distribue les gains NETS + commission plateforme.
 --  Reprend la logique exacte de 0005b (L94-182) en ajoutant le prélèvement.
+--  Lit le taux + destinataire depuis platform_config (au lieu d'un GUC).
 -- ===========================================================================
 create or replace function public.resolve_market(
   p_market_id  bigint,
@@ -52,20 +66,20 @@ declare
   v_commission     numeric;   -- part plateforme
   v_net            numeric;   -- gain net joueur
   v_wallet_id      bigint;
-  v_platform_id    text;      -- UUID admin (setting)
   v_platform_wid   bigint;    -- wallet id plateforme
   v_rate           numeric;   -- taux commission en %
-  v_total_commission numeric := 0;  -- cumul pour le log final
+  v_platform_uid   uuid;
 begin
   v_sv := current_setting('app.share_value', true)::numeric;
   if v_sv is null then v_sv := 5000; end if;
 
-  -- Lecture du taux de commission (défaut 0 si non configuré).
-  v_rate := coalesce(nullif(current_setting('app.commission_rate', true), '')::numeric, 0);
-  -- Lecture de l'UUID admin plateforme (NULL si non configuré).
-  v_platform_id := nullif(current_setting('app.platform_user_id', true), '');
-  if v_platform_id is not null then
-    select id into v_platform_wid from public.wallets where user_id = v_platform_id::uuid;
+  -- Lecture de la config commission (taux + UUID admin).
+  select commission_rate, platform_user_id
+    into v_rate, v_platform_uid
+  from public.platform_config where id = 1;
+  if v_rate is null then v_rate := 0; end if;
+  if v_platform_uid is not null then
+    select id into v_platform_wid from public.wallets where user_id = v_platform_uid;
   end if;
 
   select * into v_market from public.markets where id = p_market_id for update;
@@ -116,7 +130,6 @@ begin
       if v_rate > 0 and v_platform_wid is not null then
         v_commission := round(v_payout * v_rate / 100);
         v_net := v_payout - v_commission;
-        v_total_commission := v_total_commission + v_commission;
 
         -- Écriture commission → wallet plateforme (traçabilité comptable).
         perform public.post_entry(
