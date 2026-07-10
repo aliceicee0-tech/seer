@@ -51,7 +51,8 @@ returns text language sql immutable as $$
     when 'DEPOSIT' then 'Dépôt' when 'WITHDRAW' then 'Retrait'
     when 'MINT' then 'Émission de paires' when 'MERGE' then 'Fusion de paires'
     when 'TRADE_BUY' then 'Achat au carnet' when 'TRADE_SELL' then 'Vente au carnet'
-    when 'SETTLE_WIN' then 'Gain de résolution' when 'ORDER_REFUND' then 'Remboursement d''ordre'
+    when 'SETTLE_WIN' then 'Gain de résolution' when 'SETTLE_FEE' then 'Commission plateforme'
+    when 'ORDER_REFUND' then 'Remboursement d''ordre'
     when 'ADJUSTMENT' then 'Ajustement manuel' else t end;
 $$;
 
