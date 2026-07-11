@@ -426,8 +426,8 @@ begin
     update public.orders
       set filled_quantity = filled_quantity + v_fill_qty,
           status = case
-            when filled_quantity + v_fill_qty >= quantity then 'FILLED'
-            else 'PARTIAL'
+            when filled_quantity + v_fill_qty >= quantity then 'FILLED'::public.order_status
+            else 'PARTIAL'::public.order_status
           end
     where id in (v_buy_order_id, v_sell_order_id);
 
@@ -443,9 +443,9 @@ begin
   -- Recalcule le statut final de l'ordre agresseur.
   update public.orders
     set status = case
-      when filled_quantity >= quantity then 'FILLED'
-      when filled_quantity > 0 then 'PARTIAL'
-      else 'OPEN'
+      when filled_quantity >= quantity then 'FILLED'::public.order_status
+      when filled_quantity > 0 then 'PARTIAL'::public.order_status
+      else 'OPEN'::public.order_status
     end
   where id = v_order_id;
 
