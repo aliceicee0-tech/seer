@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Category, Market } from "../api/types";
 import { Badge, EmptyState, ProbabilityBar, Spinner } from "../components/ui";
-import { arPrice, cx, dateFr, timeLeft } from "../lib/format";
+import { cx, dateFr, timeLeft } from "../lib/format";
 import { Clock } from "lucide-react";
 
 export default function MarketsPage() {
@@ -61,10 +61,7 @@ function MarketCard({ m }: { m: Market }) {
 
         <div className="mt-5 flex items-center justify-between text-[9px] font-extrabold uppercase tracking-widest text-zinc-450 border-t border-zinc-100 pt-3.5">
           <span>
-            Prix :{" "}
-            <strong className="text-zinc-700 font-extrabold">
-              {m.last_price ? `${arPrice(m.last_price)} Ar` : "—"}
-            </strong>
+            {open ? "Pariez dès 500 Ar" : "Clôturé"}
           </span>
           <span className="flex items-center gap-1.5">
             {open ? (

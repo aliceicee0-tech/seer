@@ -1,18 +1,16 @@
-// Types partagés alignés sur les serializers Django (moteur Polymarket / CLOB).
+// Types partagés — moteur PARI MUTUEL (modèle broker).
 
 export type Category = "WEATHER" | "SOCIAL" | "TRENDING" | "SPORTS";
 export type MarketStatus =
   | "DRAFT" | "OPEN" | "LOCKED" | "RESOLVING" | "RESOLVED" | "CANCELLED" | "FROZEN";
 export type Outcome = "YES" | "NO";
-export type OrderSide = "BUY" | "SELL";
-export type OrderType = "LIMIT" | "MARKET";
-export type OrderStatus = "OPEN" | "PARTIAL" | "FILLED" | "CANCELLED" | "EXPIRED";
+export type BetStatus = "PENDING" | "WON" | "LOST" | "REFUNDED";
 export type Operator = "MVOLA" | "ORANGE" | "AIRTEL";
 export type DepositStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type WithdrawStatus = "PENDING" | "PAID" | "REJECTED";
 
 export interface User {
-  id: string;  // Supabase auth.users = uuid (string), pas number
+  id: string;
   phone: string;
   display_name: string;
   balance: string;
@@ -28,9 +26,9 @@ export interface Market {
   category: Category;
   category_label: string;
   status: MarketStatus;
-  proba_yes: string;
+  proba_yes: string;   // conservé pour compat v_markets (devient ratio mises)
   proba_no: string;
-  last_price: string | null;   // dernier prix de trade (null si aucun échange)
+  last_price: string | null;  // null en pari mutuel (plus de prix de trade)
   bet_close_at: string;
   resolve_at: string;
   image_url?: string;
@@ -43,11 +41,11 @@ export interface Market {
 }
 
 export interface MarketPool {
-  escrow_balance: string;
-  pairs_created: number;
-  pairs_destroyed: number;
-  pairs_in_circulation: number;
-  invariant_ok: boolean;
+  pool_yes: string;
+  pool_no: string;
+  total: string;
+  odds_yes: number | null;   // cote = total / pool_yes (null si pool_yes = 0)
+  odds_no: number | null;
 }
 
 export interface Paginated<T> {
@@ -58,95 +56,22 @@ export interface Paginated<T> {
 }
 
 // --------------------------------------------------------------------------
-// Carnet d'ordres (CLOB)
+// Paris (pari mutuel)
 // --------------------------------------------------------------------------
 
-export interface OrderBookLevel {
-  price: string;
-  quantity: number;
-}
-
-export interface OrderBook {
-  outcome: Outcome;
-  bids: OrderBookLevel[];   // achats en attente (meilleur = +haut)
-  asks: OrderBookLevel[];   // ventes en attente (meilleur = +bas)
-  spread: string | null;
-  last_price: string | null;
-}
-
-export interface Trade {
+export interface Bet {
   id: number;
-  market: number;
-  outcome: Outcome;
-  price: string;
-  quantity: number;
-  buyer_phone: string;
-  seller_phone: string;
-  created_at: string;
-}
-
-export interface PricePoint {
-  at: string;
-  price: string;
-  quantity: number;
-}
-
-export interface Order {
-  id: number;
-  market: number;
-  market_question: string;
-  side: OrderSide;
-  side_label: string;
-  outcome: Outcome;
-  outcome_label: string;
-  order_type: OrderType;
-  price: string | null;
-  quantity: number;
-  filled_quantity: number;
-  remaining_quantity: number;
-  status: OrderStatus;
-  status_label: string;
-  expires_at?: string | null;
-  created_at: string;
-}
-
-export interface OrderInput {
-  side: OrderSide;
-  outcome: Outcome;
-  order_type: OrderType;
-  price?: string | null;
-  quantity: number;
-  expires_at?: string | null;
-}
-
-// --------------------------------------------------------------------------
-// Positions
-// --------------------------------------------------------------------------
-
-export interface Position {
-  id: number;
-  market: number;
+  market_id: number;
   market_question: string;
   market_status: MarketStatus;
+  market_outcome?: Outcome;   // issue du marché (après résolution)
   outcome: Outcome;
   outcome_label: string;
-  quantity: number;
-  locked_quantity: number;
-  available_quantity: number;
-  avg_buy_price: string;
-  last_price: string | null;
-  current_value: string;
-  pnl: string;
-  updated_at: string;
-}
-
-export interface Estimate {
-  quantity: string;
-  outcome: Outcome;
-  current_price: string | null;
-  current_cost: string | null;
-  payout_if_win: string;
-  profit_if_win: string | null;
+  amount: string;
+  payout: string;
+  status: BetStatus;
+  created_at: string;
+  resolved_at: string | null;
 }
 
 export interface MobileMoneyInfo {

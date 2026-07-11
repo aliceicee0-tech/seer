@@ -12,9 +12,8 @@
 // ===========================================================================
 import type {
   AdminDeposit, AdminLedgerEntry, AdminStats, AdminUser, AdminWithdraw,
-  AuthResponse, DepositRequest, Estimate, LedgerEntry, Market, MarketPool,
-  MobileMoneyInfo, Order, OrderBook, OrderInput, Paginated, Position,
-  PricePoint, Trade, WithdrawRequest,
+  AuthResponse, Bet, DepositRequest, LedgerEntry, Market, MarketPool,
+  MobileMoneyInfo, Outcome, Paginated, WithdrawRequest,
 } from "./types";
 
 // Base URL des Edge Functions Supabase (configurable via .env Vite).
@@ -161,55 +160,25 @@ export const api = {
   me: () => request<import("./types").User>("/me", { auth: true }),
   myLedger: () => requestPaginated<LedgerEntry>("/my-ledger", { auth: true }),
 
-  // Marchés (moteur Polymarket / CLOB)
+  // Marchés (catalogue + détail + pools pari mutuel)
   markets: (params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
     return requestPaginated<Market>(`/markets${qs ? `?${qs}` : ""}`);
   },
   market: (id: number) => request<Market>(`/markets/${id}`),
   marketPool: (id: number) => request<MarketPool>(`/markets/${id}/pool`),
-  estimate: (id: number, outcome: string, quantity: number) =>
-    request<Estimate>(
-      `/markets/${id}/estimate?outcome=${outcome}&quantity=${quantity}`
-    ),
 
-  // Émission / fusion de paires (Split / Merge)
-  mint: (id: number, count: number) =>
-    request<MarketPool>(`/markets-write/${id}/mint`, {
+  // Paris (pari mutuel)
+  placeBet: (marketId: number, outcome: Outcome, amount: number) =>
+    request<Bet>(`/markets-write/${marketId}/bet`, {
       method: "POST",
-      body: JSON.stringify({ count }),
-    }),
-  merge: (id: number, count: number) =>
-    request<MarketPool>(`/markets-write/${id}/merge`, {
-      method: "POST",
-      body: JSON.stringify({ count }),
-    }),
-
-  // Carnet d'ordres
-  orderBook: (id: number) => request<OrderBook[]>(`/markets/${id}/orderbook`),
-  trades: (id: number) =>
-    requestPaginated<Trade>(`/markets/${id}/trades`),
-  priceHistory: (id: number, outcome = "YES", window = "7d") =>
-    request<PricePoint[]>(
-      `/markets/${id}/price-history?outcome=${outcome}&window=${window}`
-    ),
-
-  // Ordres : placement / annulation / listing
-  placeOrder: (id: number, input: OrderInput) =>
-    request<Order>(`/markets-write/${id}/orders`, {
-      method: "POST",
-      body: JSON.stringify(input),
-    }),
-  cancelOrder: (marketId: number, orderId: number) =>
-    request<Order>(`/markets-write/${marketId}/orders/${orderId}`, {
-      method: "DELETE",
+      body: JSON.stringify({ outcome, amount }),
     }),
 
   // Compte utilisateur
-  myPositions: () => requestPaginated<Position>("/my-trading/positions"),
-  myOrders: (status?: string) =>
-    requestPaginated<Order>(
-      `/my-trading/orders${status ? `?status=${status}` : ""}`
+  myBets: (status?: string) =>
+    requestPaginated<Bet>(
+      `/my-trading/bets${status ? `?status=${status}` : ""}`
     ),
 
   // Paiements
