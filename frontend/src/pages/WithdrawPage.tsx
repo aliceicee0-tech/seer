@@ -53,15 +53,15 @@ export default function WithdrawPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
-      <Link to="/wallet" className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-zinc-500 hover:text-white transition">
+      <Link to="/wallet" className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-900 transition">
         <ArrowLeft className="h-4 w-4" /> Wallet
       </Link>
-      <h1 className="text-2xl font-black uppercase tracking-tight text-white">Retirer</h1>
+      <h1 className="text-2xl font-black uppercase tracking-tight text-zinc-900">Retirer</h1>
 
       <div className="card space-y-4">
-        <div className="rounded-xl bg-zinc-950 border border-zinc-900 p-3.5 text-xs flex justify-between items-center">
+        <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3.5 text-xs flex justify-between items-center">
           <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-550">Disponible :</span>
-          <span className="font-black text-white text-sm">{mga(user.available_balance)} MGA</span>
+          <span className="font-black text-zinc-900 text-sm">{mga(user.available_balance)} MGA</span>
         </div>
 
         <div>
@@ -76,8 +76,8 @@ export default function WithdrawPage() {
                   className={cx(
                     "rounded-xl border p-3 text-[10px] font-black uppercase tracking-widest transition-all duration-300 active:scale-[0.96] font-display",
                     selected
-                      ? "bg-white border-white text-black shadow-md"
-                      : "bg-zinc-950/60 border-zinc-900/80 text-zinc-450 hover:text-zinc-200 hover:border-zinc-700"
+                      ? "bg-zinc-900 border-zinc-900 text-white shadow-md font-bold"
+                      : "bg-zinc-50 border-zinc-200 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
                   )}
                 >
                   {o.label}
@@ -107,7 +107,7 @@ export default function WithdrawPage() {
           />
         </div>
 
-        {error && <p className="text-xs font-semibold text-rose-400 bg-rose-950/20 border border-rose-900/30 px-3 py-2 rounded-xl">{error}</p>}
+        {error && <p className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-2 rounded-xl">{error}</p>}
 
         <button onClick={create} className="btn-primary w-full" disabled={creating}>
           {creating ? "Traitement…" : "Demander le retrait"}
@@ -124,7 +124,7 @@ export default function WithdrawPage() {
         {list.map((w) => (
           <div key={w.id} className="card flex items-center justify-between">
             <div className="space-y-0.5">
-              <p className="text-base font-black text-white">{mga(w.amount)} MGA</p>
+              <p className="text-base font-black text-zinc-900">{mga(w.amount)} MGA</p>
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                 {w.operator_label} &rarr; {w.recipient_phone}
               </p>

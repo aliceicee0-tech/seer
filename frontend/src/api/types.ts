@@ -12,7 +12,7 @@ export type DepositStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type WithdrawStatus = "PENDING" | "PAID" | "REJECTED";
 
 export interface User {
-  id: number;
+  id: string;  // Supabase auth.users = uuid (string), pas number
   phone: string;
   display_name: string;
   balance: string;

@@ -40,7 +40,7 @@ export default function MarketDetailPage() {
     return (
       <div className="py-12 text-center text-zinc-500">
         <p className="text-sm font-semibold">Marché introuvable.</p>
-        <Link to="/" className="mt-4 inline-flex items-center gap-1.5 text-xs text-white font-bold hover:underline">
+        <Link to="/" className="mt-4 inline-flex items-center gap-1.5 text-xs text-zinc-900 font-bold hover:underline">
           <ArrowLeft className="h-4 w-4" /> Retour aux marchés
         </Link>
       </div>

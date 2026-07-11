@@ -10,7 +10,7 @@ export default function AccountPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
-      <h1 className="text-2xl font-black uppercase tracking-tight text-white">Mon compte</h1>
+      <h1 className="text-2xl font-black uppercase tracking-tight text-zinc-900">Mon compte</h1>
 
       <div className="card space-y-4">
         <div className="flex items-center gap-3">
@@ -18,11 +18,11 @@ export default function AccountPage() {
             {(user.display_name || user.phone).charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="font-bold text-white text-base">{user.display_name || "Joueur"}</p>
+            <p className="font-bold text-zinc-900 text-base">{user.display_name || "Joueur"}</p>
             <p className="text-xs text-zinc-550 font-semibold">{user.phone}</p>
           </div>
         </div>
-        <div className="border-t border-zinc-850 pt-3 text-xs text-zinc-500 font-semibold uppercase tracking-wider space-y-1">
+        <div className="border-t border-zinc-200 pt-3 text-xs text-zinc-500 font-semibold uppercase tracking-wider space-y-1">
           <p>Membre depuis le {dateFr(user.date_joined)}</p>
           {user.is_platform_admin && (
             <p className="mt-1 inline-flex items-center gap-1 text-[10px] text-zinc-300 font-bold bg-zinc-950 border border-zinc-850 px-2 py-0.5 rounded">

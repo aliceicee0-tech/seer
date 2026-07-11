@@ -68,7 +68,7 @@ export default function AdminMarketsPage() {
     <div className="space-y-4">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-black uppercase tracking-tight text-white">Marchés</h1>
+          <h1 className="text-2xl font-black uppercase tracking-tight text-zinc-900">Marchés</h1>
           <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 mt-1">Créer, résoudre, annuler.</p>
         </div>
         <button onClick={() => setCreating(true)} className="btn-primary px-4 py-2 text-xs font-bold">
@@ -77,9 +77,9 @@ export default function AdminMarketsPage() {
       </header>
 
       {error && (
-        <div className="rounded-xl border border-rose-800 bg-rose-950/40 px-4 py-3 text-xs font-semibold text-rose-300 flex items-start justify-between gap-3">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-600 flex items-start justify-between gap-3">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-200 font-black">✕</button>
+          <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-700 font-black">✕</button>
         </div>
       )}
 
@@ -90,10 +90,10 @@ export default function AdminMarketsPage() {
       ) : (
         <div className="space-y-3">
           {items.map((m) => (
-            <div key={m.id} className="card space-y-3 hover:border-zinc-800">
+            <div key={m.id} className="card space-y-3 hover:border-zinc-300">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="line-clamp-2 text-sm font-bold text-zinc-150 leading-snug">{m.question}</p>
+                  <p className="line-clamp-2 text-sm font-bold text-zinc-900 leading-snug">{m.question}</p>
                   <p className="mt-1 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                     Clôture : {dateFr(m.bet_close_at)}
                   </p>
@@ -101,16 +101,16 @@ export default function AdminMarketsPage() {
                 <MarketStatusBadge status={m.status} />
               </div>
 
-              <div className="flex items-center justify-between text-xs text-zinc-550 border-t border-zinc-950 pt-2">
+              <div className="flex items-center justify-between text-xs text-zinc-500 border-t border-zinc-150 pt-2">
                 <span>
                   Prix :{" "}
-                  <b className="text-zinc-200 font-bold">
+                  <b className="text-zinc-800 font-bold">
                     {m.last_price ? `${arPrice(m.last_price)} Ar` : "—"}
                   </b>
                   {" · "}
-                  <span className="text-zinc-400">OUI {m.proba_yes}</span>
+                  <span className="text-blue-600 font-bold">OUI {m.proba_yes}</span>
                   {" / "}
-                  <span className="text-zinc-500">NON {m.proba_no}</span>
+                  <span className="text-rose-600 font-bold">NON {m.proba_no}</span>
                 </span>
               </div>
 

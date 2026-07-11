@@ -24,7 +24,7 @@ export default function HistoryPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <h1 className="text-2xl font-black uppercase tracking-tight text-white">Transactions</h1>
+      <h1 className="text-2xl font-black uppercase tracking-tight text-zinc-900">Transactions</h1>
       <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
         Historique comptable complet de votre compte
       </p>

@@ -20,7 +20,7 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto max-w-sm">
-      <h1 className="mb-1 text-2xl font-black uppercase tracking-tight text-white">Connexion</h1>
+      <h1 className="mb-1 text-2xl font-black uppercase tracking-tight text-zinc-900">Connexion</h1>
       <p className="mb-6 text-xs font-bold uppercase tracking-wider text-zinc-500">
         Accédez à vos paris et votre wallet
       </p>

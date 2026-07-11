@@ -53,20 +53,20 @@ export default function AdminDepositsPage() {
   return (
     <div className="space-y-4">
       <header className="mb-4">
-        <h1 className="text-2xl font-black uppercase tracking-tight text-white">Dépôts</h1>
+        <h1 className="text-2xl font-black uppercase tracking-tight text-zinc-900">Dépôts</h1>
         <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 mt-1">
           Vérifiez le SMS opérateur, puis approuvez pour créditer le joueur
         </p>
       </header>
 
       {error && (
-        <div className="rounded-xl border border-rose-800 bg-rose-950/40 px-4 py-3 text-xs font-semibold text-rose-300 flex items-start justify-between gap-3">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-600 flex items-start justify-between gap-3">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-200 font-black">✕</button>
+          <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-700 font-black">✕</button>
         </div>
       )}
 
-      <div className="flex gap-1 overflow-x-auto rounded-xl bg-zinc-950 border border-zinc-900 p-1">
+      <div className="flex gap-1 overflow-x-auto rounded-xl bg-zinc-100 border border-zinc-200 p-1">
         {FILTERS.map((f) => {
           const active = filter === f.key;
           return (
@@ -76,8 +76,8 @@ export default function AdminDepositsPage() {
               className={cx(
                 "whitespace-nowrap rounded-lg px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition border border-transparent",
                 active
-                  ? "bg-zinc-900 text-white border-zinc-800"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-white text-zinc-900 border-zinc-200 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-800"
               )}
             >
               {f.label}
@@ -93,44 +93,44 @@ export default function AdminDepositsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((d) => (
-            <div key={d.id} className="card space-y-4 flex flex-col justify-between hover:border-zinc-800">
+            <div key={d.id} className="card space-y-4 flex flex-col justify-between hover:border-zinc-300">
               <div className="space-y-3">
-                <div className="flex items-start justify-between gap-2 border-b border-zinc-900 pb-3">
+                <div className="flex items-start justify-between gap-2 border-b border-zinc-150 pb-3">
                   <div>
-                    <span className="font-mono font-bold text-[10px] tracking-wider text-white bg-zinc-950 border border-zinc-800 px-2 py-0.5 rounded">{d.code}</span>
-                    <p className="font-bold text-sm text-zinc-100 mt-2">{d.user_phone}</p>
+                    <span className="font-mono font-bold text-[10px] tracking-wider text-zinc-800 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded">{d.code}</span>
+                    <p className="font-bold text-sm text-zinc-900 mt-2">{d.user_phone}</p>
                     <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">{d.user_name || "—"}</p>
                   </div>
-                  <p className="text-lg font-black text-white">
+                  <p className="text-lg font-black text-zinc-900">
                     {mga(d.amount)} <span className="text-[10px] font-semibold text-zinc-500">MGA</span>
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-zinc-500 font-semibold uppercase tracking-wider">
-                  <span>Opérateur : <b className="text-zinc-350">{d.operator_label}</b></span>
-                  <span>Expéditeur : <b className="text-zinc-350">{d.sender_phone || "—"}</b></span>
+                  <span>Opérateur : <b className="text-zinc-800">{d.operator_label}</b></span>
+                  <span>Expéditeur : <b className="text-zinc-800">{d.sender_phone || "—"}</b></span>
                   <span className="col-span-2">
-                    Réf SMS : <b className="text-zinc-350">{d.operator_ref || "—"}</b>
+                    Réf SMS : <b className="text-zinc-800">{d.operator_ref || "—"}</b>
                   </span>
-                  <span className="col-span-2 text-[10px] text-zinc-600 mt-1">Demandé : {dateFr(d.created_at)}</span>
+                  <span className="col-span-2 text-[10px] text-zinc-400 mt-1">Demandé : {dateFr(d.created_at)}</span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between border-t border-zinc-900 pt-3 mt-1">
+              <div className="flex items-center justify-between border-t border-zinc-150 pt-3 mt-1">
                 <DepositStatusBadge status={d.status} label={d.status_label} />
                 {d.status === "PENDING" && (
                   <div className="flex gap-2">
                     <button
                       disabled={busyId === d.id}
                       onClick={() => act(d, "reject")}
-                      className="btn bg-zinc-950 hover:bg-rose-950/20 text-rose-450 border border-zinc-850 hover:border-rose-900/30 px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
+                      className="btn bg-white hover:bg-rose-50 text-rose-600 border border-zinc-200 hover:border-rose-200 px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
                     >
                       Rejeter
                     </button>
                     <button
                       disabled={busyId === d.id}
                       onClick={() => act(d, "approve")}
-                      className="btn bg-white hover:bg-zinc-200 text-black px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
+                      className="btn bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
                     >
                       Approuver
                     </button>

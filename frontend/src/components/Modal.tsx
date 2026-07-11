@@ -36,14 +36,14 @@ export function Modal({
     >
       <div
         className={cx(
-          "w-full rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl",
+          "w-full rounded-2xl border border-zinc-200 bg-white shadow-2xl",
           size === "sm" ? "max-w-sm" : "max-w-md",
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
-          <div className="border-b border-zinc-800 px-5 py-4">
-            <h2 className="text-sm font-black uppercase tracking-tight text-white">{title}</h2>
+          <div className="border-b border-zinc-150 px-5 py-4">
+            <h2 className="text-sm font-black uppercase tracking-tight text-zinc-900">{title}</h2>
           </div>
         )}
         <div className="px-5 py-4">{children}</div>
@@ -72,11 +72,11 @@ export function ConfirmDialog({
 }) {
   return (
     <Modal open={open} onClose={onClose} title={title} size="sm">
-      <p className="text-sm text-zinc-300 leading-relaxed">{message}</p>
+      <p className="text-sm text-zinc-650 leading-relaxed">{message}</p>
       <div className="mt-5 flex justify-end gap-2">
         <button
           onClick={onClose}
-          className="btn bg-zinc-950 hover:bg-zinc-850 text-zinc-300 border border-zinc-800 px-3.5 py-2 text-xs font-bold uppercase tracking-wider"
+          className="btn bg-white hover:bg-zinc-50 text-zinc-600 border border-zinc-200 px-3.5 py-2 text-xs font-bold uppercase tracking-wider"
         >
           Annuler
         </button>
@@ -128,7 +128,7 @@ export function PromptDialog({
 
   return (
     <Modal open={open} onClose={onClose} title={title} size="sm">
-      <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">{message}</p>
+      <p className="text-sm text-zinc-650 leading-relaxed whitespace-pre-line">{message}</p>
       <form
         className="mt-3"
         onSubmit={(e) => {
@@ -148,7 +148,7 @@ export function PromptDialog({
           <button
             type="button"
             onClick={onClose}
-            className="btn bg-zinc-950 hover:bg-zinc-850 text-zinc-300 border border-zinc-800 px-3.5 py-2 text-xs font-bold uppercase tracking-wider"
+            className="btn bg-white hover:bg-zinc-50 text-zinc-600 border border-zinc-200 px-3.5 py-2 text-xs font-bold uppercase tracking-wider"
           >
             Annuler
           </button>

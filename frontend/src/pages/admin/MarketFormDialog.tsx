@@ -61,11 +61,11 @@ export default function MarketFormDialog({
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
-        className="max-h-[92vh] w-full max-w-md space-y-3 overflow-y-auto rounded-t-2xl bg-ink-800 p-4 sm:rounded-2xl"
+        className="max-h-[92vh] w-full max-w-md space-y-4 overflow-y-auto rounded-t-2xl bg-white border border-zinc-200 p-6 sm:rounded-2xl shadow-2xl text-zinc-900"
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">{market ? "Éditer le marché" : "Nouveau marché"}</h2>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-200">✕</button>
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <h2 className="text-lg font-black uppercase tracking-tight text-zinc-900">{market ? "Éditer le marché" : "Nouveau marché"}</h2>
+          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 font-bold">✕</button>
         </div>
 
         <div>
@@ -76,7 +76,7 @@ export default function MarketFormDialog({
             value={form.question}
             onChange={(e) => set("question", e.target.value)}
           />
-          <p className="mt-1 text-[11px] text-slate-500">
+          <p className="mt-1 text-[10px] font-semibold text-zinc-450 uppercase tracking-wider">
             Syntaxe : [Quoi] [Seuil] [Où] [Avant quand] ?
           </p>
         </div>
@@ -145,16 +145,17 @@ export default function MarketFormDialog({
           </div>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-slate-300">
+        <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-600">
           <input
             type="checkbox"
             checked={form.is_featured}
             onChange={(e) => set("is_featured", e.target.checked)}
+            className="rounded border-zinc-300 text-blue-600 focus:ring-blue-500/30"
           />
           Mettre en avant (featured)
         </label>
 
-        {error && <p className="rounded-lg bg-rose-500/15 px-3 py-2 text-sm text-rose-300">{error}</p>}
+        {error && <p className="rounded-xl bg-rose-50 border border-rose-200 px-3.5 py-2.5 text-xs font-semibold text-rose-600">{error}</p>}
 
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onClose} className="btn-secondary flex-1">Annuler</button>
