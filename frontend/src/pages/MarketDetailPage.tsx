@@ -415,6 +415,16 @@ function TradePanel({
         </div>
       )}
 
+      {/* Avertissement spécial MARKET sans liquidité : le joueur doit comprendre
+          que son ordre ne pourra pas s'exécuter (carnet vide côté opposé). */}
+      {orderType === "MARKET" && !marketPrice && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50/60 px-3.5 py-2.5 text-[11px] font-semibold text-rose-700 leading-snug">
+          ⚠️ Carnet vide : aucun ordre de {side === "BUY" ? "vente" : "achat"} sur {outcome === "YES" ? "OUI" : "NON"}.
+          Un ordre au marché sera rejeté. Utilisez « Émettre » (Mint) pour créer des parts,
+          ou placez un ordre LIMIT pour attendre une contrepartie.
+        </div>
+      )}
+
       {/* Récap clair façon Polymarket */}
       {total !== null && (
         <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-2">
