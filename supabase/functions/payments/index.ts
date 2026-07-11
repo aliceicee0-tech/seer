@@ -55,27 +55,11 @@ async function handler(req: Request): Promise<Response> {
       if (error) return bad("Erreur lecture.", 500);
       return json(data ?? []);
     }
-    if (req.method === "POST") {
-      const body = await req.json().catch(() => null);
-      if (!body) return bad("JSON invalide.");
-      const amount = Number(body.amount ?? 0);
-      const operator = String(body.operator ?? "").toUpperCase();
-      // sender_phone est optionnel à la création (le joueur le saisit au declare).
-      const sender_phone = String(body.sender_phone ?? "").trim();
-      const operator_ref = String(body.operator_ref ?? "").trim();
-      if (amount <= 0) return bad("Montant invalide.");
-      if (!["MVOLA", "ORANGE", "AIRTEL"].includes(operator)) return bad("Opérateur invalide.");
-
-      const { data, error } = await sb.rpc("create_deposit_request", {
-        p_user_id: uid, p_amount: amount,
-        p_operator: operator, p_sender_phone: sender_phone,
-        p_operator_ref: operator_ref,
-      });
-      if (error) return bad(error.message);
-      return json(data, 201);
-    }
 
     // POST /payments/deposits/:id/declare — le joueur déclare son transfert.
+    // ⚠️ Doit être testé AVANT le POST création, sinon la route /:id/declare est
+    // capturée par la création qui lèverait "Montant invalide" (pas de amount
+    // dans le body de déclaration). Bug corrigé 2026-07-11.
     const declareId = Number(parts[2]);
     if (declareId && parts[3] === "declare" && req.method === "POST") {
       const body = await req.json().catch(() => null);
@@ -100,6 +84,27 @@ async function handler(req: Request): Promise<Response> {
         .single();
       if (error) return bad(error.message);
       return json(data);
+    }
+
+    // POST /payments/deposits — créer une demande de dépôt.
+    if (req.method === "POST") {
+      const body = await req.json().catch(() => null);
+      if (!body) return bad("JSON invalide.");
+      const amount = Number(body.amount ?? 0);
+      const operator = String(body.operator ?? "").toUpperCase();
+      // sender_phone est optionnel à la création (le joueur le saisit au declare).
+      const sender_phone = String(body.sender_phone ?? "").trim();
+      const operator_ref = String(body.operator_ref ?? "").trim();
+      if (amount <= 0) return bad("Montant invalide.");
+      if (!["MVOLA", "ORANGE", "AIRTEL"].includes(operator)) return bad("Opérateur invalide.");
+
+      const { data, error } = await sb.rpc("create_deposit_request", {
+        p_user_id: uid, p_amount: amount,
+        p_operator: operator, p_sender_phone: sender_phone,
+        p_operator_ref: operator_ref,
+      });
+      if (error) return bad(error.message);
+      return json(data, 201);
     }
   }
 
