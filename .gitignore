@@ -50,6 +50,7 @@ frontend/.vite/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.tsbuildinfo
 
 # PWA générés
 frontend/dev-dist/
@@ -66,3 +67,10 @@ Thumbs.db
 
 # Docker
 postgres-data/
+
+# Supabase CLI — cache local de liaison (contient des métadonnées de projet)
+supabase/.temp/
+supabase/.branches/
+
+# ZCode agent (artefacts locaux)
+.zcode/

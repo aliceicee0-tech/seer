@@ -1,0 +1,56 @@
+# CI Nexus — Déploiement automatique des Edge Functions Supabase.
+#
+# Se déclenche à chaque push touchant supabase/functions/ sur main ou feat/**.
+# Déployable aussi manuellement (onglet Actions → Run workflow).
+#
+# Pré-requis (secrets GitHub → Settings → Secrets and variables → Actions) :
+#   SUPABASE_ACCESS_TOKEN  — créé sur https://supabase.com/dashboard/account/tokens
+#
+# Le project-ref est public (présent dans l'URL), il n'est pas un secret.
+# nb: secret SUPABASE_ACCESS_TOKEN ajouté le 2026-07-10.
+
+name: Deploy Edge Functions
+
+on:
+  push:
+    branches: [main, "feat/**"]
+    paths:
+      - "supabase/functions/**"
+      - ".github/workflows/deploy-functions.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_PROJECT_REF: baaairsnnbjvloghnweh
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+
+      - name: Deploy all functions
+        working-directory: supabase
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -e
+          for fn in functions/*/; do
+            name=$(basename "$fn")
+            # _shared n'est pas une fonction, juste des imports TS partagés.
+            if [ "$name" = "_shared" ]; then continue; fi
+            echo "::group::Déploiement de $name"
+            # --no-verify-jwt : l'auth est gérée dans le code (requireAuth),
+            # pas au niveau plateforme, sinon les routes publiques (mobile-money,
+            # markets) seraient rejetées avant même d'atteindre la fonction.
+            supabase functions deploy "$name" \
+              --project-ref "$SUPABASE_PROJECT_REF" \
+              --no-verify-jwt
+            echo "::endgroup::"
+          done
+
+      - name: Summary
+        if: always()
+        run: echo "✅ Edge Functions déployées vers $SUPABASE_PROJECT_REF" >> $GITHUB_STEP_SUMMARY

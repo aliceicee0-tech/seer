@@ -37,7 +37,7 @@ export default defineConfig({
                 runtimeCaching: [
                     {
                         urlPattern: function (_a) {
-                            var url = _a.url;
+                            const url = _a.url;
                             return url.pathname.startsWith("/api/");
                         },
                         handler: "NetworkFirst",

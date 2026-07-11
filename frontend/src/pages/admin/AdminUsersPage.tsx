@@ -24,7 +24,7 @@ export default function AdminUsersPage() {
     <div className="space-y-4">
       <header>
         <h1 className="text-2xl font-extrabold">Joueurs</h1>
-        <p className="text-sm text-slate-400">Comptes et soldes (hors staff).</p>
+        <p className="text-sm text-zinc-500">Comptes et soldes (hors staff).</p>
       </header>
 
       <input
@@ -45,21 +45,21 @@ export default function AdminUsersPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold">{u.phone}</p>
-                  <p className="text-xs text-slate-400">{u.display_name || "—"}</p>
+                  <p className="text-xs text-zinc-500">{u.display_name || "—"}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-emerald-300">
-                    {mga(u.available_balance)} <span className="text-xs text-slate-400">MGA</span>
+                  <p className="text-lg font-bold text-emerald-600">
+                    {mga(u.available_balance)} <span className="text-xs text-zinc-500 font-semibold">MGA</span>
                   </p>
                   {parseFloat(u.locked_balance) > 0 && (
-                    <p className="text-[11px] text-amber-300">
+                    <p className="text-[11px] text-amber-600 font-bold">
                       bloqué : {mga(u.locked_balance)}
                     </p>
                   )}
                 </div>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span>{u.bets_count} pari(s) · {dateFr(u.date_joined)}</span>
+              <div className="flex items-center justify-between text-xs text-zinc-400">
+                <span>{u.positions_count} position(s) · {dateFr(u.date_joined)}</span>
               </div>
             </div>
           ))}

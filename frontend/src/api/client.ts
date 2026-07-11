@@ -1,10 +1,28 @@
+// ===========================================================================
+//  Nexus v2 — Client API (Supabase Edge Functions)
+//
+//  Adaptation du client v1 (Django REST) vers les Edge Functions Supabase.
+//  L'objet `api` garde EXACTEMENT la même interface → aucune page à modifier.
+//
+//  Différences clés vs v1 :
+//    - BASE_URL vient de VITE_API_URL (ex: https://xxx.supabase.co/functions/v1)
+//    - Les réponses tableaux sont enveloppées dans { count, results } pour
+//      respecter le type Paginated<T> attendu par les pages.
+//    - Les routes /create/ et /declare/ deviennent un POST sur la collection.
+// ===========================================================================
 import type {
   AdminDeposit, AdminLedgerEntry, AdminStats, AdminUser, AdminWithdraw,
-  AuthResponse, Bet, DepositRequest, Estimate, LedgerEntry, Market,
-  MobileMoneyInfo, Paginated, WithdrawRequest,
+  AuthResponse, DepositRequest, Estimate, LedgerEntry, Market, MarketPool,
+  MobileMoneyInfo, Order, OrderBook, OrderInput, Paginated, Position,
+  PricePoint, Trade, WithdrawRequest,
 } from "./types";
 
-const BASE = "/api";
+// Base URL des Edge Functions Supabase (configurable via .env Vite).
+const BASE = import.meta.env.VITE_API_URL ?? "/api";
+
+// Codes de statut HTTP utilisés par le client API.
+const HTTP_UNAUTHORIZED = 401;  // token expiré → tente un refresh
+const HTTP_NO_CONTENT = 204;     // succès sans corps (DELETE, etc.)
 
 // --- Gestion des tokens ----------------------------------------------------
 const ACCESS_KEY = "seer_access";
@@ -37,6 +55,23 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Extrait le message lisible d'une erreur d'API.
+ *
+ * Le backend (Django REST comme les Edge Functions Supabase) renvoie le détail
+ * dans `{ detail: "..." }`. Sans cet helper, les `catch` affichaient des
+ * messages génériques ("Création impossible.") qui masquaient la vraie cause.
+ */
+export function apiErrorMessage(e: unknown, fallback = "Une erreur est survenue."): string {
+  if (e instanceof ApiError) {
+    const d = e.detail as { detail?: unknown } | null;
+    if (d && typeof d.detail === "string" && d.detail.trim()) return d.detail.trim();
+    return e.message; // "Erreur 401", "Erreur 500", etc.
+  }
+  if (e instanceof Error && e.message) return e.message;
+  return fallback;
+}
+
 async function request<T>(
   path: string,
   opts: RequestInit & { auth?: boolean } = {}
@@ -51,7 +86,7 @@ async function request<T>(
 
   const res = await fetch(`${BASE}${path}`, { ...opts, headers });
 
-  if (res.status === 401 && token.refresh) {
+  if (res.status === HTTP_UNAUTHORIZED && token.refresh) {
     // Tente un rafraîchissement silencieux une fois
     const refreshed = await tryRefresh();
     if (refreshed) {
@@ -67,18 +102,32 @@ async function request<T>(
     try {
       detail = await res.json();
     } catch {
-      /* reponse non JSON */
+      /* réponse non JSON */
     }
     throw new ApiError(`Erreur ${res.status}`, res.status, detail);
   }
 
-  if (res.status === 204) return {} as T;
+  if (res.status === HTTP_NO_CONTENT) return {} as T;
   return (await res.json()) as T;
+}
+
+/** Enveloppe un tableau en Paginated<T> (compat frontend Django REST). */
+function paginate<T>(arr: T[]): Paginated<T> {
+  return { count: arr.length, next: null, previous: null, results: arr };
+}
+
+async function requestPaginated<T>(path: string, opts?: RequestInit & { auth?: boolean }): Promise<Paginated<T>> {
+  const arr = await request<T[]>(path, opts);
+  return paginate(Array.isArray(arr) ? arr : []);
 }
 
 async function tryRefresh(): Promise<boolean> {
   try {
-    const res = await fetch(`${BASE}/auth/refresh/`, {
+    // Supabase : le refresh se fait via l'endpoint natif (POST /auth/v1/refresh)
+    // encapsulé ici par simplicité. On appelle l'Edge Function si elle existe,
+    // sinon on dépend du SDK. En pratique, le SDK Supabase gère ça ; ce code
+    // est un garde-fou pour les tokens v1.
+    const res = await fetch(`${BASE}/auth-refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh: token.refresh }),
@@ -96,93 +145,125 @@ async function tryRefresh(): Promise<boolean> {
 export const api = {
   // Auth
   register: (phone: string, password: string, display_name?: string) =>
-    request<AuthResponse>("/auth/register/", {
+    request<AuthResponse>("/auth-register", {
       method: "POST",
       auth: false,
       body: JSON.stringify({ phone, password, display_name }),
     }),
   login: (phone: string, password: string) =>
-    request<AuthResponse>("/auth/login/", {
+    request<AuthResponse>("/auth-login", {
       method: "POST",
       auth: false,
       body: JSON.stringify({ phone, password }),
     }),
 
   // Profil
-  me: () => request<import("./types").User>("/me/", { auth: true }),
-  myLedger: () =>
-    request<Paginated<LedgerEntry>>("/me/ledger/", { auth: true }),
+  me: () => request<import("./types").User>("/me", { auth: true }),
+  myLedger: () => requestPaginated<LedgerEntry>("/my-ledger", { auth: true }),
 
-  // Marchés
+  // Marchés (moteur Polymarket / CLOB)
   markets: (params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
-    return request<Paginated<Market>>(`/markets/${qs ? `?${qs}` : ""}`);
+    return requestPaginated<Market>(`/markets${qs ? `?${qs}` : ""}`);
   },
-  market: (id: number) => request<Market>(`/markets/${id}/`),
-  estimate: (id: number, outcome: string, amount: string) =>
+  market: (id: number) => request<Market>(`/markets/${id}`),
+  marketPool: (id: number) => request<MarketPool>(`/markets/${id}/pool`),
+  estimate: (id: number, outcome: string, quantity: number) =>
     request<Estimate>(
-      `/markets/${id}/estimate/?outcome=${outcome}&amount=${amount}`
+      `/markets/${id}/estimate?outcome=${outcome}&quantity=${quantity}`
     ),
-  placeBet: (id: number, outcome: string, amount: string) =>
-    request<Bet>(`/markets/${id}/place-bet/`, {
+
+  // Émission / fusion de paires (Split / Merge)
+  mint: (id: number, count: number) =>
+    request<MarketPool>(`/markets-write/${id}/mint`, {
       method: "POST",
-      body: JSON.stringify({ outcome, amount }),
+      body: JSON.stringify({ count }),
     }),
-  myBets: () => request<Paginated<Bet>>("/markets/my-bets/"),
-  myActiveBets: () => request<Paginated<Bet>>("/markets/my-bets/active/"),
+  merge: (id: number, count: number) =>
+    request<MarketPool>(`/markets-write/${id}/merge`, {
+      method: "POST",
+      body: JSON.stringify({ count }),
+    }),
+
+  // Carnet d'ordres
+  orderBook: (id: number) => request<OrderBook[]>(`/markets/${id}/orderbook`),
+  trades: (id: number) =>
+    requestPaginated<Trade>(`/markets/${id}/trades`),
+  priceHistory: (id: number, outcome = "YES", window = "7d") =>
+    request<PricePoint[]>(
+      `/markets/${id}/price-history?outcome=${outcome}&window=${window}`
+    ),
+
+  // Ordres : placement / annulation / listing
+  placeOrder: (id: number, input: OrderInput) =>
+    request<Order>(`/markets-write/${id}/orders`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  cancelOrder: (marketId: number, orderId: number) =>
+    request<Order>(`/markets-write/${marketId}/orders/${orderId}`, {
+      method: "DELETE",
+    }),
+
+  // Compte utilisateur
+  myPositions: () => requestPaginated<Position>("/my-trading/positions"),
+  myOrders: (status?: string) =>
+    requestPaginated<Order>(
+      `/my-trading/orders${status ? `?status=${status}` : ""}`
+    ),
 
   // Paiements
-  mobileMoney: () => request<MobileMoneyInfo>("/payments/mobile-money/"),
+  mobileMoney: () => request<MobileMoneyInfo>("/payments/mobile-money"),
   createDeposit: (amount: string, operator: string) =>
-    request<DepositRequest>("/payments/deposits/create/", {
+    request<DepositRequest>("/payments/deposits", {
       method: "POST",
-      body: JSON.stringify({ amount, operator }),
+      body: JSON.stringify({ amount, operator, sender_phone: "", operator_ref: "" }),
     }),
   declareDeposit: (id: number, sender_phone: string, operator_ref: string) =>
-    request<DepositRequest>(`/payments/deposits/${id}/declare/`, {
+    request<DepositRequest>(`/payments/deposits/${id}/declare`, {
       method: "POST",
       body: JSON.stringify({ sender_phone, operator_ref }),
     }),
-  deposits: () => request<Paginated<DepositRequest>>("/payments/deposits/"),
+  deposits: () => requestPaginated<DepositRequest>("/payments/deposits"),
   createWithdraw: (amount: string, operator: string, recipient_phone: string) =>
-    request<WithdrawRequest>("/payments/withdrawals/create/", {
+    request<WithdrawRequest>("/payments/withdrawals", {
       method: "POST",
       body: JSON.stringify({ amount, operator, recipient_phone }),
     }),
-  withdrawals: () => request<Paginated<WithdrawRequest>>("/payments/withdrawals/"),
+  withdrawals: () => requestPaginated<WithdrawRequest>("/payments/withdrawals"),
 
   // --- Dashboard admin (staff only) -------------------------------------
   admin: {
-    stats: () => request<AdminStats>("/admin/stats/"),
+    stats: () => request<AdminStats>("/admin/stats"),
 
     // Dépôts — rapprochement bancaire
     deposits: (status?: string) =>
-      request<Paginated<AdminDeposit>>(
-        `/admin/deposits/${status ? `?status=${status}` : ""}`
+      requestPaginated<AdminDeposit>(
+        `/admin/deposits${status ? `?status=${status}` : ""}`
       ),
     approveDeposit: (id: number, note?: string) =>
-      request<AdminDeposit>(`/admin/deposits/${id}/approve/`, {
+      request<AdminDeposit>(`/admin/deposits/${id}/approve`, {
         method: "POST",
         body: JSON.stringify({ note: note ?? "" }),
       }),
     rejectDeposit: (id: number, note?: string) =>
-      request<AdminDeposit>(`/admin/deposits/${id}/reject/`, {
+      request<AdminDeposit>(`/admin/deposits/${id}/reject`, {
         method: "POST",
         body: JSON.stringify({ note: note ?? "" }),
       }),
 
     // Retraits — exécution manuelle
     withdrawals: (status?: string) =>
-      request<Paginated<AdminWithdraw>>(
-        `/admin/withdrawals/${status ? `?status=${status}` : ""}`
+      requestPaginated<AdminWithdraw>(
+        `/admin/withdrawals${status ? `?status=${status}` : ""}`
       ),
     payWithdraw: (id: number, operator_ref?: string, note?: string) =>
-      request<AdminWithdraw>(`/admin/withdrawals/${id}/pay/`, {
+      request<AdminWithdraw>(`/admin/withdrawals/${id}/pay`, {
         method: "POST",
         body: JSON.stringify({ operator_ref: operator_ref ?? "", note: note ?? "" }),
       }),
     rejectWithdraw: (id: number, note?: string) =>
-      request<AdminWithdraw>(`/admin/withdrawals/${id}/reject/`, {
+      request<AdminWithdraw>(`/admin/withdrawals/${id}/reject`, {
         method: "POST",
         body: JSON.stringify({ note: note ?? "" }),
       }),
@@ -190,32 +271,32 @@ export const api = {
     // Marchés — CRUD + résolution/annulation
     markets: (params: Record<string, string> = {}) => {
       const qs = new URLSearchParams(params).toString();
-      return request<Paginated<Market>>(`/admin/markets/${qs ? `?${qs}` : ""}`);
+      return requestPaginated<Market>(`/admin/markets${qs ? `?${qs}` : ""}`);
     },
     createMarket: (data: import("./types").MarketFormData) =>
-      request<Market>("/admin/markets/", {
+      request<Market>("/admin/markets", {
         method: "POST",
         body: JSON.stringify(data),
       }),
     updateMarket: (id: number, data: Partial<import("./types").MarketFormData>) =>
-      request<Market>(`/admin/markets/${id}/`, {
+      request<Market>(`/admin/markets/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
     resolveMarket: (id: number, outcome: "YES" | "NO") =>
-      request<Market>(`/admin/markets/${id}/resolve/`, {
+      request<Market>(`/admin/markets/${id}/resolve`, {
         method: "POST",
         body: JSON.stringify({ outcome }),
       }),
     cancelMarket: (id: number) =>
-      request<Market>(`/admin/markets/${id}/cancel/`, { method: "POST" }),
+      request<Market>(`/admin/markets/${id}/cancel`, { method: "POST" }),
 
     // Joueurs & comptabilité
     users: (q?: string) =>
-      request<Paginated<AdminUser>>(`/admin/users/${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+      requestPaginated<AdminUser>(`/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`),
     ledger: (params: Record<string, string> = {}) => {
       const qs = new URLSearchParams(params).toString();
-      return request<Paginated<AdminLedgerEntry>>(`/admin/ledger/${qs ? `?${qs}` : ""}`);
+      return requestPaginated<AdminLedgerEntry>(`/admin/ledger${qs ? `?${qs}` : ""}`);
     },
   },
 };

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Category, Market } from "../api/types";
 import { Badge, EmptyState, ProbabilityBar, Spinner } from "../components/ui";
-import { cx, dateFr, mga, timeLeft } from "../lib/format";
+import { arPrice, cx, dateFr, timeLeft } from "../lib/format";
 import { Clock } from "lucide-react";
 
 export default function MarketsPage() {
@@ -60,7 +60,12 @@ function MarketCard({ m }: { m: Market }) {
         <ProbabilityBar yes={m.proba_yes} no={m.proba_no} />
 
         <div className="mt-5 flex items-center justify-between text-[9px] font-extrabold uppercase tracking-widest text-zinc-450 border-t border-zinc-100 pt-3.5">
-          <span>Pool : <strong className="text-zinc-700 font-extrabold">{mga(m.pool_total)} MGA</strong></span>
+          <span>
+            Prix :{" "}
+            <strong className="text-zinc-700 font-extrabold">
+              {m.last_price ? `${arPrice(m.last_price)} Ar` : "—"}
+            </strong>
+          </span>
           <span className="flex items-center gap-1.5">
             {open ? (
               <>
@@ -88,6 +93,7 @@ function statusLabel(s: Market["status"]): string {
   const map: Record<string, string> = {
     LOCKED: "Clôturé", RESOLVING: "En résolution",
     RESOLVED: "Résolu", CANCELLED: "Annulé", DRAFT: "Brouillon",
+    FROZEN: "Gelé",
   };
   return map[s] ?? s;
 }

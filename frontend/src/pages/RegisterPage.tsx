@@ -21,7 +21,7 @@ export default function RegisterPage() {
 
   return (
     <div className="mx-auto max-w-sm">
-      <h1 className="mb-1 text-2xl font-black uppercase tracking-tight text-white">Créer un compte</h1>
+      <h1 className="mb-1 text-2xl font-black uppercase tracking-tight text-zinc-900">Créer un compte</h1>
       <p className="mb-6 text-xs font-bold uppercase tracking-wider text-zinc-500">
         Inscrivez-vous avec votre numéro Mobile Money
       </p>

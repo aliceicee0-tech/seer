@@ -11,6 +11,7 @@ const MARKET_TONE: Record<MarketStatus, "neutral" | "yes" | "no" | "warn" | "inf
   RESOLVING: "info",
   RESOLVED: "neutral",
   CANCELLED: "no",
+  FROZEN: "no",
 };
 
 const MARKET_LABEL: Record<MarketStatus, string> = {
@@ -20,6 +21,21 @@ const MARKET_LABEL: Record<MarketStatus, string> = {
   RESOLVING: "Résolution",
   RESOLVED: "Résolu",
   CANCELLED: "Annulé",
+  FROZEN: "Gelé",
+};
+
+// Tons visuels par statut de dépôt : vert si approuvé, rouge si rejeté, ambre sinon.
+const DEPOSIT_TONE: Record<DepositStatus, "yes" | "no" | "warn"> = {
+  PENDING: "warn",
+  APPROVED: "yes",
+  REJECTED: "no",
+};
+
+// Tons visuels par statut de retrait : vert si payé, rouge si rejeté, ambre sinon.
+const WITHDRAW_TONE: Record<WithdrawStatus, "yes" | "no" | "warn"> = {
+  PENDING: "warn",
+  PAID: "yes",
+  REJECTED: "no",
 };
 
 export function MarketStatusBadge({ status }: { status: MS }) {
@@ -31,10 +47,7 @@ export function DepositStatusBadge({
 }: {
   status: DepositStatus; label: string;
 }) {
-  const tone =
-    status === "APPROVED" ? "yes" :
-    status === "REJECTED" ? "no" : "warn";
-  return <Badge tone={tone as "yes" | "no" | "warn"}>{label}</Badge>;
+  return <Badge tone={DEPOSIT_TONE[status]}>{label}</Badge>;
 }
 
 export function WithdrawStatusBadge({
@@ -42,8 +55,5 @@ export function WithdrawStatusBadge({
 }: {
   status: WithdrawStatus; label: string;
 }) {
-  const tone =
-    status === "PAID" ? "yes" :
-    status === "REJECTED" ? "no" : "warn";
-  return <Badge tone={tone as "yes" | "no" | "warn"}>{label}</Badge>;
+  return <Badge tone={WITHDRAW_TONE[status]}>{label}</Badge>;
 }

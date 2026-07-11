@@ -1,1 +1,50 @@
-postgres-data
+# Fichiers/dossiers exclus du contexte de build Docker (backend ET caddy).
+# Accélère le build et évite de fuiter des secrets dans les images.
+
+# --- Python / Django ---
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+.venv/
+venv/
+env/
+db.sqlite3
+**/*.sqlite3
+**/*.log
+
+# --- Tests & CI (pas utiles dans l'image runtime) ---
+**/tests.py
+**/.pytest_cache/
+**/.mypy_cache/
+**/.coverage
+htmlcov/
+.coveragerc
+
+# --- Frontend (build par l'étape Caddy, pas ici) ---
+frontend/node_modules/
+frontend/dist/
+
+# --- Secrets & config locaux ---
+.env
+.env.prod
+.env.local
+*.pem
+*.key
+
+# --- Données locales ---
+postgres-data/
+backups/
+media/
+
+# --- Git & éditeurs ---
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# --- Docs (allègent l'image) ---
+*.md
+!backend/README.md
