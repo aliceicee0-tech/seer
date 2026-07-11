@@ -21,12 +21,18 @@ async function handler(req: Request): Promise<Response> {
   const anon = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
 
   // GET /markets — catalogue (via v_markets : labels + prix + probas inclus)
+  // Filtres optionnels : ?category=WEATHER  ?status=OPEN
   if (parts.length === 1) {
-    const { data, error } = await anon
+    const category = url.searchParams.get("category");
+    const status = url.searchParams.get("status");
+    let q = anon
       .from("v_markets")
       .select("*")
       .order("is_featured", { ascending: false })
       .order("bet_close_at", { ascending: false });
+    if (category) q = q.eq("category", category);
+    if (status) q = q.eq("status", status);
+    const { data, error } = await q;
     if (error) return bad("Erreur lecture.", 500);
     return json(data ?? []);
   }
