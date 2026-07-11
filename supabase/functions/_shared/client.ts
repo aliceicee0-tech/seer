@@ -8,12 +8,20 @@
 // ===========================================================================
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-/** Headers CORS (les Edge Functions Supabase ne les ajoutent pas par défaut). */
+/**
+ * Headers CORS.
+ * Note sécurité : le wildcard (*) est acceptable ici car l'authentification
+ * repose sur un JWT Bearer en localStorage (pas en cookie httpOnly). Un site
+ * tiers ne peut ni lire ce token ni forger des requêtes authentifiées.
+ * Pour restreindre à un domaine précis en production (recommandé quand tu auras
+ * ton domaine définitif), remplace "*" par l'URL du frontend.
+ */
 export const corsHeaders = {
   "access-control-allow-origin": "*",
   "access-control-allow-headers":
     "authorization, x-client-info, apikey, content-type",
   "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  "vary": "origin",
 };
 
 export const SHARE_VALUE = Number(Deno.env.get("SHARE_VALUE") ?? 5000);
