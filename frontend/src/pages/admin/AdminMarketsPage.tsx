@@ -10,6 +10,7 @@ import MarketFormDialog, { type MarketFormResult } from "./MarketFormDialog";
 type ConfirmState =
   | { kind: "resolve"; market: Market; outcome: "YES" | "NO" }
   | { kind: "cancel"; market: Market }
+  | { kind: "delete"; market: Market }
   | null;
 
 export default function AdminMarketsPage() {
@@ -47,6 +48,18 @@ export default function AdminMarketsPage() {
       await load();
     } catch (e) {
       setError(humanize(e, "Annulation échouée"));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function deleteMarket(m: Market) {
+    setBusyId(m.id);
+    try {
+      await api.admin.deleteMarket(m.id);
+      await load();
+    } catch (e) {
+      setError(humanize(e, "Suppression échouée"));
     } finally {
       setBusyId(null);
     }
@@ -149,6 +162,15 @@ export default function AdminMarketsPage() {
                     Annuler
                   </button>
                 )}
+                {(m.status === "DRAFT" || m.status === "CANCELLED" || m.status === "RESOLVED") && (
+                  <button
+                    disabled={busyId === m.id}
+                    onClick={() => setConfirm({ kind: "delete", market: m })}
+                    className="btn-secondary px-3 py-2 text-xs text-rose-600 hover:bg-rose-50"
+                  >
+                    Supprimer
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -194,6 +216,27 @@ export default function AdminMarketsPage() {
           ) : null
         }
         confirmLabel="Annuler le marché"
+        danger
+      />
+
+      <ConfirmDialog
+        open={confirm?.kind === "delete"}
+        onClose={() => setConfirm(null)}
+        onConfirm={() => {
+          if (confirm?.kind === "delete") deleteMarket(confirm.market);
+        }}
+        title="Supprimer définitivement"
+        message={
+          confirm?.kind === "delete" ? (
+            <>
+              Supprimer « {confirm.market.question.slice(0, 50)}… » ?<br />
+              <span className="text-rose-600 font-bold">
+                Action irréversible. Impossible si des positions/escrow sont actifs.
+              </span>
+            </>
+          ) : null
+        }
+        confirmLabel="Supprimer"
         danger
       />
     </div>

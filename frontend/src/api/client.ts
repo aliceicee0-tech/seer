@@ -290,6 +290,8 @@ export const api = {
       }),
     cancelMarket: (id: number) =>
       request<Market>(`/admin/markets/${id}/cancel`, { method: "POST" }),
+    deleteMarket: (id: number) =>
+      request<{ ok: boolean }>(`/admin/markets/${id}/delete`, { method: "POST" }),
 
     // Joueurs & comptabilité
     users: (q?: string) =>

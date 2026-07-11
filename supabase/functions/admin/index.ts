@@ -15,6 +15,7 @@
 //  PATCH  /functions/v1/admin/markets/:id                 — éditer un marché
 //  POST   /functions/v1/admin/markets/:id/resolve         { outcome }
 //  POST   /functions/v1/admin/markets/:id/cancel
+//  DELETE /functions/v1/admin/markets/:id                 — supprime (si sans activité)
 //  GET    /functions/v1/admin/users                       — joueurs (recherche)
 //  GET    /functions/v1/admin/ledger                      — journal comptable global
 //  GET    /functions/v1/admin/invariants                  — verify_invariants
@@ -181,6 +182,11 @@ async function handler(req: Request): Promise<Response> {
       if (error) return bad(error.message);
       const { data: market } = await admin.from("markets").select("*").eq("id", id).single();
       return json(market);
+    }
+    if (action === "delete" && req.method === "POST") {
+      const { error } = await admin.rpc("delete_market", { p_market_id: id, p_admin_id: uid });
+      if (error) return bad(error.message);
+      return json({ ok: true });
     }
   }
 
