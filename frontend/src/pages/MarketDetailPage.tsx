@@ -152,7 +152,7 @@ function BetPanel({
 }: {
   market: Market; pool: MarketPool | null; onChanged: () => void;
 }) {
-  const { user } = useAuth();
+  const { user, fetchMe } = useAuth();
   const [outcome, setOutcome] = useState<Outcome>("YES");
   const [amount, setAmount] = useState("1000");
   const [submitting, setSubmitting] = useState(false);
@@ -170,7 +170,8 @@ function BetPanel({
     try {
       await api.placeBet(market.id, outcome, amt);
       setDone(`Pari placé : ${amt} Ar sur ${outcome === "YES" ? "OUI" : "NON"}.`);
-      setTimeout(onChanged, 1200);
+      await fetchMe();      // recharge le solde dans le header immédiatement
+      onChanged();          // recharge le pool/cotes du marché
     } catch (e) {
       setError(humanize(e));
     } finally {
@@ -189,12 +190,16 @@ function BetPanel({
   const amt = parseInt(amount.replace(/[^0-9]/g, ""), 10) || 0;
   const total = Number(pool?.total ?? "0");
   const poolSide = outcome === "YES" ? Number(pool?.pool_yes ?? "0") : Number(pool?.pool_no ?? "0");
-  const odds = poolSide > 0 ? total / poolSide : null;
-  // Gain potentiel = (mise / pool_côté_après) × pot_net(90%).
-  // Approximation simple : mise × cote × 0.9 (si pool_side > 0).
-  const potentialWin = odds && poolSide > 0
-    ? Math.round(amt * odds * 0.9)
+  // Gain potentiel si ce pari gagne :
+  // (ma_mise / (pool_côté + ma_mise)) × (total + ma_mise) × 0.9
+  // On inclut la mise dans le pool (le pari n'est pas encore enregistré).
+  const newPoolSide = poolSide + amt;
+  const newTotal = total + amt;
+  const potentialWin = newPoolSide > 0
+    ? Math.round((amt / newPoolSide) * newTotal * 0.9)
     : null;
+  const potentialProfit = potentialWin !== null ? potentialWin - amt : null;
+  const isSolo = poolSide === 0;   // premier parieur sur ce côté
   const balance = user ? Number(user.available_balance) : 0;
 
   return (
@@ -263,15 +268,21 @@ function BetPanel({
               Si {outcome === "YES" ? "OUI" : "NON"} gagne
             </span>
             <span className="font-display text-lg font-black text-emerald-600">
-              +{mga(String(potentialWin))} Ar
+              {mga(String(potentialWin))} Ar
             </span>
           </div>
           <div className="flex justify-between text-[10px] font-semibold text-zinc-500">
             <span>Profit net potentiel</span>
-            <span className="font-bold text-emerald-600">
-              +{mga(String(potentialWin - amt))} Ar
+            <span className={cx("font-bold", (potentialProfit ?? 0) >= 0 ? "text-emerald-600" : "text-rose-500")}>
+              {(potentialProfit ?? 0) >= 0 ? "+" : ""}{mga(String(potentialProfit ?? 0))} Ar
             </span>
           </div>
+          {isSolo && (
+            <p className="text-[10px] font-medium text-amber-600 leading-relaxed pt-1 border-t border-amber-200/60 mt-1">
+              ⚠️ Vous êtes le premier à parier sur ce côté. Attendez que d'autres
+              parient sur le côté opposé pour qu'un gain soit possible.
+            </p>
+          )}
         </div>
       )}
 
