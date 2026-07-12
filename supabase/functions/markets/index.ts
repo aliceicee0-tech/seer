@@ -19,7 +19,10 @@ async function handler(req: Request): Promise<Response> {
   const parts = path.split("/");
   const anon = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
 
-  // GET /markets — catalogue
+  // GET /markets — catalogue public.
+  // Côté joueur : on ne montre QUE les marchés pariables (OPEN, LOCKED, RESOLVING).
+  // Les marchés résolus/annulés/gelés/brouillons sont exclus de la liste.
+  // Le paramètre ?status= permet à l'admin de forcer un autre filtre.
   if (parts.length === 1) {
     const category = url.searchParams.get("category");
     const status = url.searchParams.get("status");
@@ -28,8 +31,13 @@ async function handler(req: Request): Promise<Response> {
       .select("*")
       .order("is_featured", { ascending: false })
       .order("bet_close_at", { ascending: false });
+    // Si l'appelant ne précise pas de statut, on filtre aux marchés actifs.
+    if (status) {
+      q = q.eq("status", status);
+    } else {
+      q = q.in("status", ["OPEN", "LOCKED", "RESOLVING"]);
+    }
     if (category) q = q.eq("category", category);
-    if (status) q = q.eq("status", status);
     const { data, error } = await q;
     if (error) return bad("Erreur lecture.", 500);
     return json(data ?? []);
