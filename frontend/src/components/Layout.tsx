@@ -130,26 +130,6 @@ const FOOTER_COLUMNS = [
     title: "Ressources",
     links: [
       { label: "Comment ça marche", to: "/how-it-works" },
-      { label: "FAQ", to: "#" },
-      { label: "Blog", to: "#" },
-      { label: "API", to: "#" },
-    ],
-  },
-  {
-    title: "Légal",
-    links: [
-      { label: "Conditions d'utilisation", to: "#" },
-      { label: "Politique de confidentialité", to: "#" },
-      { label: "Règles de résolution", to: "#" },
-      { label: "Responsabilité", to: "#" },
-    ],
-  },
-  {
-    title: "Communauté",
-    links: [
-      { label: "Telegram", to: "#" },
-      { label: "Twitter / X", to: "#" },
-      { label: "Discord", to: "#" },
       { label: "Mon compte", to: "/account" },
     ],
   },
@@ -169,7 +149,7 @@ function Footer() {
   return (
     <footer className="hidden md:block w-full border-t border-zinc-200 bg-white mt-16">
       <div className="mx-auto max-w-[1400px] w-full px-4 md:px-8 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
+        <div className="grid grid-cols-2 gap-12 max-w-md">
           {FOOTER_COLUMNS.map((col) => (
             <div key={col.title}>
               <h4 className="text-sm font-semibold text-zinc-900 mb-5">{col.title}</h4>
