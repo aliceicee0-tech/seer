@@ -37,17 +37,24 @@ export function pctOf(price: string | number | null, digits = 0): string {
   return `${((n / SHARE_VALUE) * 100).toFixed(digits)}%`;
 }
 
+// Fuseau horaire de Madagascar ( Indian/Antananarivo = UTC+3 ).
+// Forcé partout pour que les dates soient stables quel que soit le réglage
+// du navigateur/téléphone du joueur.
+const MG_TZ = "Indian/Antananarivo";
+
 export function dateFr(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
   return new Intl.DateTimeFormat("fr-FR", {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
+    timeZone: MG_TZ,
   }).format(d);
 }
 
 export function timeLeft(iso: string | null | undefined): string {
   if (!iso) return "—";
+  // La différence d'instants est indépendante du fuseau (timestamps absolus).
   const ms = new Date(iso).getTime() - Date.now();
   if (ms <= 0) return "Clôturé";
   const h = Math.floor(ms / 3_600_000);

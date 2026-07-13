@@ -10,28 +10,40 @@ const CATEGORIES: { value: Category; label: string }[] = [
   { value: "TRENDING", label: "📈 Tendances" },
 ];
 
-/** Convertit une Date ISO en valeur pour <input type="datetime-local">. */
+/**
+ * Fuseau Madagascar ( Indian/Antananarivo = UTC+3 ). Forcé pour que la saisie
+ * et l'affichage soient stables quel que soit le réglage du navigateur.
+ * On ne dépend PAS de getTimezoneOffset() qui renvoie le fuseau du téléphone.
+ */
+const MG_OFFSET_MIN = -180; // UTC+3 → offset en minutes (signe inversé JS)
+
+/** Convertit une Date ISO (UTC) en valeur datetime-local au fuseau Madagascar. */
 function toInputDate(iso?: string): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
-  // datetime-local n'accepte pas le fuseau : on formate en local
-  const off = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - off * 60_000);
-  return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
+  // Intl.DateTimeFormat avec timeZone forcé renvoie l'heure Madagascar.
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+    timeZone: "Indian/Antananarivo", hour12: false,
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 }
 
 /**
- * Convertit une valeur datetime-local (ex: "2026-07-15T20:00") en ISO complet
- * avec fuseau local. Sans ça, Postgres interprète la valeur comme UTC et
- * l'heure affichée est décalée ( Madagascar UTC+3 ).
+ * Convertit une valeur datetime-local Madagascar (ex: "2026-07-15T20:00") en
+ * ISO UTC. La valeur saisie représente l'heure locale à Madagascar (UTC+3),
+ * donc on doit retirer 3h pour obtenir l'instant UTC correspondant.
  */
 function toLocalISO(value: string): string {
-  // new Date("2026-07-15T20:00") interprète déjà en HEURE LOCALE du navigateur.
-  const d = new Date(value);
+  const d = new Date(value + ":00Z");
   if (Number.isNaN(d.getTime())) return value;
-  return d.toISOString(); // ex: 2026-07-15T17:00:00.000Z (= 20:00 à Antananarivo)
+  // On inverse le signe : MG_OFFSET_MIN = -180 (UTC+3), on soustrait donc
+  // +180 min pour obtenir l'instant UTC correct.
+  return new Date(d.getTime() + MG_OFFSET_MIN * 60_000).toISOString();
 }
 
 export default function MarketFormDialog({
