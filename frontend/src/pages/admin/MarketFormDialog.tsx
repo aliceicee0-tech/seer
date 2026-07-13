@@ -22,6 +22,18 @@ function toInputDate(iso?: string): string {
   return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
 }
 
+/**
+ * Convertit une valeur datetime-local (ex: "2026-07-15T20:00") en ISO complet
+ * avec fuseau local. Sans ça, Postgres interprète la valeur comme UTC et
+ * l'heure affichée est décalée ( Madagascar UTC+3 ).
+ */
+function toLocalISO(value: string): string {
+  // new Date("2026-07-15T20:00") interprète déjà en HEURE LOCALE du navigateur.
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toISOString(); // ex: 2026-07-15T17:00:00.000Z (= 20:00 à Antananarivo)
+}
+
 export default function MarketFormDialog({
   market, onClose, onSubmit,
 }: {
@@ -53,7 +65,18 @@ export default function MarketFormDialog({
     if (!form.bet_close_at || !form.resolve_at)
       return setError("Les dates de clôture et de vérification sont obligatoires.");
     setError(null);
-    onSubmit(form, market?.id);
+    // datetime-local renvoie une valeur SANS fuseau horaire (ex: 2026-07-15T20:00).
+    // Si on l'envoie tel quel, Postgres l'interprète comme UTC → décalage de 3h
+    // à l'affichage ( Madagascar = UTC+3 ). On convertit donc en ISO complet
+    // avec le fuseau local pour que l'heure saisie soit l'heure stockée.
+    onSubmit(
+      {
+        ...form,
+        bet_close_at: toLocalISO(form.bet_close_at),
+        resolve_at: toLocalISO(form.resolve_at),
+      },
+      market?.id,
+    );
   }
 
   return (
