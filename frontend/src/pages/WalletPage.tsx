@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../store/auth";
 import { mga } from "../lib/format";
-import { Lock, ArrowDown, ArrowUp, Ticket, History, ChevronRight } from "lucide-react";
+import { Lock, ArrowDown, ArrowUp, Ticket, History, ChevronRight, Gift } from "lucide-react";
 
 export default function WalletPage() {
   const { user } = useAuth();
@@ -23,6 +23,17 @@ export default function WalletPage() {
             <Lock className="h-3.5 w-3.5 text-zinc-400" />
             <span>{mga(user.locked_balance)} MGA bloqués (retraits en cours)</span>
           </p>
+        )}
+        {parseFloat(user.bonus_locked) > 0 && (
+          <Link
+            to="/referral"
+            className="mt-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] font-semibold text-amber-700 hover:bg-amber-100 transition"
+          >
+            <Gift className="h-4 w-4 flex-none" />
+            <span>
+              Bonus à miser : <b>{mga(user.bonus_locked)} Ar</b>. Non retirable tant qu'il n'est pas joué.
+            </span>
+          </Link>
         )}
       </div>
 

@@ -57,6 +57,7 @@ async function handler(req: Request): Promise<Response> {
       balance: wallet ? String(wallet.balance) : "0",
       available_balance: wallet ? String(Number(wallet.balance) - Number(wallet.locked_balance)) : "0",
       locked_balance: wallet ? String(wallet.locked_balance) : "0",
+      bonus_locked: wallet ? String(wallet.bonus_locked) : "0",
       is_platform_admin: !!(profile.is_staff || profile.is_superuser),
       date_joined: profile.created_at,
     },

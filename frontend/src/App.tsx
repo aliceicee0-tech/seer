@@ -14,6 +14,7 @@ import WithdrawPage from "./pages/WithdrawPage";
 import AccountPage from "./pages/AccountPage";
 import HistoryPage from "./pages/HistoryPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
+import ReferralPage from "./pages/ReferralPage";
 import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
 import AdminDepositsPage from "./pages/admin/AdminDepositsPage";
 import AdminWithdrawalsPage from "./pages/admin/AdminWithdrawalsPage";
@@ -72,6 +73,10 @@ export default function App() {
           <Route
             path="/bets"
             element={<RequireAuth><MyBetsPage /></RequireAuth>}
+          />
+          <Route
+            path="/referral"
+            element={<RequireAuth><ReferralPage /></RequireAuth>}
           />
           <Route
             path="/wallet"

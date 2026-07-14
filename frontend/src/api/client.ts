@@ -13,7 +13,7 @@
 import type {
   AdminDeposit, AdminLedgerEntry, AdminStats, AdminUser, AdminWithdraw,
   AuthResponse, Bet, CommissionConfig, DepositRequest, LedgerEntry, Market, MarketPool,
-  MobileMoneyInfo, Outcome, Paginated, WithdrawRequest,
+  MobileMoneyInfo, Outcome, Paginated, ReferralInfo, WithdrawRequest,
 } from "./types";
 
 // Base URL des Edge Functions Supabase (configurable via .env Vite).
@@ -143,11 +143,11 @@ async function tryRefresh(): Promise<boolean> {
 // --- API publique ----------------------------------------------------------
 export const api = {
   // Auth
-  register: (phone: string, password: string, display_name?: string) =>
+  register: (phone: string, password: string, display_name?: string, referral_code?: string) =>
     request<AuthResponse>("/auth-register", {
       method: "POST",
       auth: false,
-      body: JSON.stringify({ phone, password, display_name }),
+      body: JSON.stringify({ phone, password, display_name, referral_code }),
     }),
   login: (phone: string, password: string) =>
     request<AuthResponse>("/auth-login", {
@@ -159,6 +159,9 @@ export const api = {
   // Profil
   me: () => request<import("./types").User>("/me", { auth: true }),
   myLedger: () => requestPaginated<LedgerEntry>("/my-ledger", { auth: true }),
+
+  // Parrainage
+  referral: () => request<ReferralInfo>("/referrals", { auth: true }),
 
   // Marchés (catalogue + détail + pools pari mutuel)
   markets: (params: Record<string, string> = {}) => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, ApiError } from "../api/client";
+import { api, ApiError, apiErrorMessage } from "../api/client";
 import type { Operator, WithdrawRequest } from "../api/types";
 import { useAuth } from "../store/auth";
 import { Badge, Spinner } from "../components/ui";
@@ -28,6 +28,8 @@ export default function WithdrawPage() {
   const [recipient, setRecipient] = useState(user?.phone ?? "");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+
+  const bonusLocked = parseFloat(user?.bonus_locked ?? "0");
 
   function load() {
     api.withdrawals().then((r) => setList(r.results)).finally(() => setLoading(false));
@@ -61,6 +63,16 @@ export default function WithdrawPage() {
           <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-550">Disponible :</span>
           <span className="font-black text-zinc-900 text-sm">{mga(user.available_balance)} MGA</span>
         </div>
+
+        {bonusLocked > 0 && (
+          <Link
+            to="/referral"
+            className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] font-semibold text-amber-700"
+          >
+            ⚠️ Bonus à miser : <b>{mga(String(bonusLocked))} Ar</b>. Vous devez le jouer
+            entièrement avant de pouvoir retirer.
+          </Link>
+        )}
 
         <div>
           <label className="label">Opérateur</label>
@@ -138,11 +150,15 @@ export default function WithdrawPage() {
   );
 }
 
-const HTTP_BAD_REQUEST = 400;  // solde insuffisant côté API
+const HTTP_BAD_REQUEST = 400;  // solde insuffisant / bonus bloquant côté API
 
 function humanize(e: unknown): string {
   if (e instanceof ApiError && e.status === HTTP_BAD_REQUEST) {
-    return "Solde disponible insuffisant.";
+    // Le backend renvoie le détail : soit "Solde disponible insuffisant.",
+    // soit le message bonus "Votre bonus de parrainage (X Ar) doit être...".
+    // On propage le vrai message au lieu d'écraser par le générique.
+    const msg = apiErrorMessage(e, "");
+    return msg || "Solde disponible insuffisant.";
   }
   return "Demande impossible.";
 }

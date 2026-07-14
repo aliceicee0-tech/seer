@@ -29,6 +29,7 @@ async function handler(req: Request): Promise<Response> {
   const phone = normalizePhone(String(body.phone ?? ""));
   const password = String(body.password ?? "");
   const displayName = String(body.display_name ?? "").trim().slice(0, 80);
+  const referralCode = String(body.referral_code ?? "").trim().toUpperCase();
 
   if (!phone) return bad("Numéro de téléphone invalide.");
   if (password.length < 6) return bad("Mot de passe trop court (6 min).");
@@ -53,6 +54,20 @@ async function handler(req: Request): Promise<Response> {
     user_metadata: { phone, display_name: displayName, username: `user_${phone}` },
   });
   if (error || !data.user) return bad("Inscription impossible : " + (error?.message ?? ""));
+
+  // --- Parrainage : lie le filleul à son parrain si un code est fourni -------
+  // Non bloquant : si le code est invalide, l'inscription réussit quand même.
+  // (attach_referral est une RPC SECURITY DEFINER qui valide le code.)
+  if (referralCode) {
+    const { error: refErr } = await admin.rpc("attach_referral", {
+      p_referred_id: data.user.id,
+      p_code: referralCode,
+    });
+    if (refErr) {
+      console.warn("[auth-register] attach_referral failed:", refErr.message);
+      // On n'échoue pas l'inscription pour autant.
+    }
+  }
 
   // Session immédiate (compat : register renvoyait un JWT).
   const pub = createClient(
@@ -85,6 +100,7 @@ async function handler(req: Request): Promise<Response> {
       balance: wallet ? String(wallet.balance) : "0",
       available_balance: wallet ? String(Number(wallet.balance) - Number(wallet.locked_balance)) : "0",
       locked_balance: wallet ? String(wallet.locked_balance) : "0",
+      bonus_locked: wallet ? String(wallet.bonus_locked) : "0",
       is_platform_admin: !!(profile.is_staff || profile.is_superuser),
       date_joined: profile.created_at,
     },

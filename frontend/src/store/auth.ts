@@ -9,7 +9,7 @@ interface AuthState {
   loading: boolean;
   error: string | null;
   login: (phone: string, password: string) => Promise<void>;
-  register: (phone: string, password: string, name?: string) => Promise<void>;
+  register: (phone: string, password: string, name?: string, referralCode?: string) => Promise<void>;
   logout: () => void;
   fetchMe: () => Promise<void>;
   /** Recharge le profil depuis le token persistant (appelé une fois au boot). */
@@ -35,10 +35,10 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (phone, password, name) => {
+  register: async (phone, password, name, referralCode) => {
     set({ loading: true, error: null });
     try {
-      const res = await api.register(phone, password, name);
+      const res = await api.register(phone, password, name, referralCode);
       token.set(res.access, res.refresh);
       set({ user: res.user, loading: false, initialized: true });
     } catch (e) {

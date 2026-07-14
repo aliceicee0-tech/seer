@@ -16,6 +16,7 @@ export interface User {
   balance: string;
   available_balance: string;
   locked_balance: string;
+  bonus_locked: string;        // bonus de parrainage à miser avant retrait (0 si aucun)
   is_platform_admin: boolean;
   date_joined: string;
 }
@@ -145,6 +146,27 @@ export interface CommissionConfig {
   commission_rate: number;        // ex: 10 (pour 10%)
   platform_user_id: string | null; // UUID du wallet dédié, ou null (fallback admin résolveur)
   has_recipient: boolean;          // false → la commission tombe sur l'admin qui résout
+}
+
+// --------------------------------------------------------------------------
+// Parrainage
+// --------------------------------------------------------------------------
+
+export interface ReferralRow {
+  id: number;
+  status: "PENDING" | "REWARDED";
+  reward_amount: string;
+  created_at: string;
+  rewarded_at: string | null;
+  display_name: string;
+  phone_masked: string;
+}
+
+export interface ReferralInfo {
+  code: string | null;
+  link: string | null;
+  stats: { invited: number; rewarded: number; total_earned: string };
+  referrals: ReferralRow[];
 }
 
 export interface AdminDeposit extends DepositRequest {

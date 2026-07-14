@@ -1,18 +1,21 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../store/auth";
 
 export default function RegisterPage() {
   const { register, loading, error, clearError } = useAuth();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  // Pré-rempli depuis ?ref=CODE (lien de parrainage partagé).
+  const [referralCode, setReferralCode] = useState(searchParams.get("ref") ?? "");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await register(phone, password, name);
+      await register(phone, password, name, referralCode || undefined);
       nav("/");
     } catch {
       /* erreur gérée via le store */
@@ -58,6 +61,22 @@ export default function RegisterPage() {
             required
             minLength={6}
           />
+        </div>
+        <div>
+          <label className="label">Code de parrainage (optionnel)</label>
+          <input
+            className="input"
+            inputMode="text"
+            autoCapitalize="characters"
+            placeholder="NEXU4F2K"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+          />
+          {referralCode && (
+            <p className="mt-1.5 text-[10px] font-semibold text-emerald-600">
+              🎁 Vous recevrez 500 Ar de bonus au 1er dépôt.
+            </p>
+          )}
         </div>
 
         {error && (

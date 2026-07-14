@@ -5,7 +5,7 @@ import { Badge, EmptyState, Spinner } from "../../components/ui";
 import { cx, dateFr, mgaSigned } from "../../lib/format";
 
 type EntryType =
-  | "DEPOSIT" | "WITHDRAW" | "BET_PLACE" | "BET_WIN" | "BET_REFUND" | "ADJUSTMENT";
+  | "DEPOSIT" | "WITHDRAW" | "BET_PLACE" | "BET_WIN" | "BET_REFUND" | "BONUS" | "ADJUSTMENT";
 
 const TYPE_TONE: Record<EntryType, "yes" | "no" | "info" | "warn" | "neutral"> = {
   DEPOSIT: "yes",
@@ -13,6 +13,7 @@ const TYPE_TONE: Record<EntryType, "yes" | "no" | "info" | "warn" | "neutral"> =
   BET_REFUND: "info",
   WITHDRAW: "no",
   BET_PLACE: "no",
+  BONUS: "yes",
   ADJUSTMENT: "warn",
 };
 
@@ -22,6 +23,7 @@ const FILTERS: { key: EntryType | ""; label: string }[] = [
   { key: "WITHDRAW", label: "Retraits" },
   { key: "BET_PLACE", label: "Mises" },
   { key: "BET_WIN", label: "Gains" },
+  { key: "BONUS", label: "Bonus" },
   { key: "BET_REFUND", label: "Remb." },
 ];
 

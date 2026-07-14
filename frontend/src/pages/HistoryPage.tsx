@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import type { LedgerEntry } from "../api/types";
 import { EmptyState, Spinner } from "../components/ui";
 import { cx, dateFr, mgaSigned } from "../lib/format";
-import { ArrowDownLeft, ArrowUpRight, Ticket, Trophy, Undo2, Sliders } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Ticket, Trophy, Undo2, Sliders, Gift } from "lucide-react";
 
 const TYPE_META: Record<string, { icon: React.ComponentType<{ className?: string }>; tone: string }> = {
   DEPOSIT: { icon: ArrowDownLeft, tone: "text-emerald-600 font-bold" },
@@ -11,6 +11,7 @@ const TYPE_META: Record<string, { icon: React.ComponentType<{ className?: string
   BET_PLACE: { icon: Ticket, tone: "text-zinc-500" },
   BET_WIN: { icon: Trophy, tone: "text-blue-600 font-extrabold" },
   BET_REFUND: { icon: Undo2, tone: "text-zinc-500" },
+  BONUS: { icon: Gift, tone: "text-emerald-600 font-bold" },
   ADJUSTMENT: { icon: Sliders, tone: "text-amber-600 font-bold" },
 };
 
