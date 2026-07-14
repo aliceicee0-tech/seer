@@ -8,8 +8,6 @@ import { ArrowLeft, AlertTriangle, CreditCard } from "lucide-react";
 
 const OPERATORS: { key: Operator; label: string }[] = [
   { key: "MVOLA", label: "MVola" },
-  { key: "ORANGE", label: "Orange Money" },
-  { key: "AIRTEL", label: "Airtel Money" },
 ];
 
 export default function DepositPage() {
@@ -104,7 +102,7 @@ export default function DepositPage() {
         <h2 className="text-xs font-black uppercase tracking-wider text-zinc-400">1. Créer la demande</h2>
         <div>
           <label className="label">Opérateur</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {OPERATORS.map((o) => {
               const selected = operator === o.key;
               return (

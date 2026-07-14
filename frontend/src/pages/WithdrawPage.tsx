@@ -9,8 +9,6 @@ import { ArrowLeft } from "lucide-react";
 
 const OPERATORS: { key: Operator; label: string }[] = [
   { key: "MVOLA", label: "MVola" },
-  { key: "ORANGE", label: "Orange Money" },
-  { key: "AIRTEL", label: "Airtel Money" },
 ];
 
 // Ton visuel selon le statut du retrait (vert = payé, rouge = rejeté, ambre sinon).
@@ -66,7 +64,7 @@ export default function WithdrawPage() {
 
         <div>
           <label className="label">Opérateur</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {OPERATORS.map((o) => {
               const selected = operator === o.key;
               return (
