@@ -44,8 +44,8 @@ export interface MarketPool {
   pool_yes: string;
   pool_no: string;
   total: string;
-  odds_yes: number | null;   // cote = total / pool_yes (null si pool_yes = 0)
-  odds_no: number | null;
+  odds_yes: number | null;   // cote nette = total / pool_yes × 0.9 (commission 10% déduite ; null si pool_yes = 0)
+  odds_no: number | null;    // idem pour NON
 }
 
 export interface Paginated<T> {

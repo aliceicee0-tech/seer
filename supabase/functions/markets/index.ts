@@ -67,9 +67,10 @@ async function handler(req: Request): Promise<Response> {
     const poolNo = Number(m.pool_no);
     const total = poolYes + poolNo;
 
-    // Cote = total / pool_côté. Si un côté est à 0, cote infinie (on retourne null).
-    const oddsYes = poolYes > 0 ? Number((total / poolYes).toFixed(2)) : null;
-    const oddsNo = poolNo > 0 ? Number((total / poolNo).toFixed(2)) : null;
+    // Cote NETTE (commission 10 % déduite) = total / pool_côté × 0.9.
+    // Représente le gain marginal pour 1 Ar misé sur ce côté. Null si pool vide.
+    const oddsYes = poolYes > 0 ? Number((total / poolYes * 0.9).toFixed(2)) : null;
+    const oddsNo = poolNo > 0 ? Number((total / poolNo * 0.9).toFixed(2)) : null;
 
     return json({
       pool_yes: String(poolYes),

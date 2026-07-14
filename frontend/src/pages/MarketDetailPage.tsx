@@ -137,8 +137,10 @@ function PoolDisplay({ pool, outcome }: { pool: MarketPool; outcome?: Outcome })
           <p className="text-[10px] text-zinc-500 font-semibold">{mga(pool.pool_no)} Ar misés</p>
         </div>
       </div>
-      <p className="text-[10px] text-zinc-400 font-medium">
-        Pot total : <b className="text-zinc-600">{mga(pool.total)} Ar</b>. Cote = gain potentiel pour 1 Ar misé.
+      <p className="text-[10px] text-zinc-400 font-medium leading-relaxed">
+        Pot total : <b className="text-zinc-600">{mga(pool.total)} Ar</b>. Cote nette (commission 10 % déduite) :
+        gain estimé pour 1 Ar misé. Plus votre mise est grosse face au pool, plus la cote réelle baisse —
+        le montant exact s'affiche ci-dessous selon votre mise.
       </p>
     </div>
   );
@@ -211,7 +213,7 @@ function BetPanel({
         {(["YES", "NO"] as Outcome[]).map((o) => {
           const selected = outcome === o;
           const oPool = o === "YES" ? Number(pool?.pool_yes ?? "0") : Number(pool?.pool_no ?? "0");
-          const oOdds = oPool > 0 && total > 0 ? (total / oPool).toFixed(2) : "—";
+          const oOdds = oPool > 0 && total > 0 ? (total / oPool * 0.9).toFixed(2) : "—";
           return (
             <button
               key={o}
