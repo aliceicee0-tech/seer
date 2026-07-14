@@ -1,17 +1,24 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../api/client";
-import type { AdminStats } from "../../api/types";
+import type { AdminStats, CommissionConfig } from "../../api/types";
 import { Spinner } from "../../components/ui";
 import { mga } from "../../lib/format";
-import { Gavel, Users, BookOpen, ArrowLeft } from "lucide-react";
+import { Gavel, Users, BookOpen, ArrowLeft, Percent } from "lucide-react";
 
 export default function AdminOverviewPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [commission, setCommission] = useState<CommissionConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.admin.stats().then(setStats).finally(() => setLoading(false));
+    Promise.all([
+      api.admin.stats(),
+      api.admin.commission().catch(() => null), // non bloquant si route absente
+    ]).then(([s, c]) => {
+      setStats(s);
+      setCommission(c);
+    }).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <Spinner />;
@@ -68,6 +75,9 @@ export default function AdminOverviewPage() {
         </p>
       </section>
 
+      {/* Commission plateforme */}
+      <CommissionCard config={commission} onChanged={setCommission} />
+
       {/* Accès rapides */}
       <section className="grid grid-cols-2 gap-3">
         <Link to="/admin/markets" className="btn-secondary justify-start gap-2.5 text-xs font-bold uppercase tracking-wider">
@@ -109,5 +119,102 @@ function Metric({
       <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{label}</p>
       <p className={`text-xl tracking-tight mt-1 ${color}`}>{value}</p>
     </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// CommissionCard — affiche et permet de configurer la commission plateforme.
+// Alerte si aucun wallet dédié n'est configuré (fallback admin résolveur).
+// --------------------------------------------------------------------------
+function CommissionCard({
+  config, onChanged,
+}: {
+  config: CommissionConfig | null;
+  onChanged: (c: CommissionConfig | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [rate, setRate] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (config) setRate(String(config.commission_rate));
+  }, [config]);
+
+  if (!config) return null; // route indisponible (ancien backend)
+
+  const noRecipient = !config.has_recipient;
+
+  async function save() {
+    setError("");
+    const r = Number(rate);
+    if (!Number.isFinite(r) || r < 0 || r > 100) {
+      setError("Le taux doit être entre 0 et 100.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await api.admin.updateCommission({ rate: r });
+      onChanged(updated);
+      setEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Échec de la mise à jour.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="card space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-550">
+          <Percent className="h-3.5 w-3.5" /> Commission plateforme
+        </p>
+        {!editing && (
+          <button onClick={() => setEditing(true)} className="text-[10px] font-bold uppercase tracking-wider text-blue-600 hover:underline">
+            Modifier
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="space-y-2">
+          <label className="label">Taux (%)</label>
+          <input
+            className="input"
+            inputMode="numeric"
+            value={rate}
+            onChange={(e) => setRate(e.target.value.replace(/[^0-9.]/g, ""))}
+          />
+          {error && <p className="text-[10px] font-semibold text-rose-600">{error}</p>}
+          <div className="flex gap-2">
+            <button onClick={save} disabled={saving} className="btn bg-zinc-900 text-white text-xs disabled:opacity-50">
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </button>
+            <button onClick={() => { setEditing(false); setError(""); }} className="btn-secondary text-xs">
+              Annuler
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="text-3xl font-black tracking-tight text-zinc-900">
+            {config.commission_rate}<span className="text-sm font-semibold text-zinc-500">%</span>
+          </p>
+          {noRecipient ? (
+            <p className="text-[10px] font-semibold text-amber-700 leading-relaxed border-t border-amber-200 pt-2">
+              ⚠️ Aucun wallet dédié configuré. La commission tombe sur l'admin qui
+              résout le marché (toi). Pour un wallet séparé, configurez
+              <code className="mx-1 px-1 py-0.5 rounded bg-amber-50 border border-amber-200">platform_user_id</code>
+              en base.
+            </p>
+          ) : (
+            <p className="text-[10px] text-emerald-600 font-semibold leading-relaxed border-t border-emerald-200 pt-2">
+              ✓ Wallet dédié configuré : la commission y est créditée à chaque résolution.
+            </p>
+          )}
+        </>
+      )}
+    </section>
   );
 }

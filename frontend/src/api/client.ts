@@ -12,7 +12,7 @@
 // ===========================================================================
 import type {
   AdminDeposit, AdminLedgerEntry, AdminStats, AdminUser, AdminWithdraw,
-  AuthResponse, Bet, DepositRequest, LedgerEntry, Market, MarketPool,
+  AuthResponse, Bet, CommissionConfig, DepositRequest, LedgerEntry, Market, MarketPool,
   MobileMoneyInfo, Outcome, Paginated, WithdrawRequest,
 } from "./types";
 
@@ -269,5 +269,13 @@ export const api = {
       const qs = new URLSearchParams(params).toString();
       return requestPaginated<AdminLedgerEntry>(`/admin/ledger${qs ? `?${qs}` : ""}`);
     },
+
+    // Commission plateforme (config + diagnostic)
+    commission: () => request<CommissionConfig>("/admin/commission"),
+    updateCommission: (data: { rate?: number; platform_user_id?: string | null }) =>
+      request<CommissionConfig>("/admin/commission", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
   },
 };

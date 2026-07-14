@@ -19,6 +19,8 @@
 //  GET    /functions/v1/admin/users                       — joueurs (recherche)
 //  GET    /functions/v1/admin/ledger                      — journal comptable global
 //  GET    /functions/v1/admin/invariants                  — verify_invariants
+//  GET    /functions/v1/admin/commission                  — config commission actuelle
+//  PATCH  /functions/v1/admin/commission                  — { rate?, platform_user_id? }
 // ===========================================================================
 import { corsHeaders, withErrors, json, bad, requireAdmin, adminClient } from "../_shared/client.ts";
 
@@ -222,6 +224,48 @@ async function handler(req: Request): Promise<Response> {
     const { data, error } = await admin.rpc("verify_invariants");
     if (error) return bad(error.message);
     return json(data);
+  }
+
+  // ===== COMMISSION (config + diagnostic) =====
+  // GET  → renvoie { commission_rate, platform_user_id, has_recipient }
+  // PATCH → { rate?, platform_user_id? } met à jour la config.
+  if (what === "commission") {
+    if (req.method === "GET") {
+      const { data, error } = await admin.from("platform_config").select("*").eq("id", 1).single();
+      if (error) return bad("Config commission introuvable. Migration 0013 manquante ?");
+      return json({
+        commission_rate: Number(data.commission_rate),
+        platform_user_id: data.platform_user_id,
+        // Indique si un wallet dédié est configuré. Si false, la commission
+        // tombe sur l'admin qui résout (fallback automatique depuis la 0020).
+        has_recipient: data.platform_user_id !== null,
+      });
+    }
+    if (req.method === "PATCH") {
+      const body = await req.json().catch(() => null);
+      if (!body) return bad("JSON invalide.");
+      const patch: Record<string, unknown> = {};
+      if (body.rate !== undefined) {
+        const rate = Number(body.rate);
+        if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+          return bad("rate doit être entre 0 et 100.");
+        }
+        patch.commission_rate = rate;
+      }
+      if (body.platform_user_id !== undefined) {
+        // null pour effacer → fallback admin résolveur ; sinon un UUID valide.
+        patch.platform_user_id = body.platform_user_id || null;
+      }
+      if (Object.keys(patch).length === 0) return bad("Rien à mettre à jour.");
+      const { data, error } = await admin.from("platform_config")
+        .update(patch).eq("id", 1).select("*").single();
+      if (error) return bad(error.message);
+      return json({
+        commission_rate: Number(data.commission_rate),
+        platform_user_id: data.platform_user_id,
+        has_recipient: data.platform_user_id !== null,
+      });
+    }
   }
 
   return bad("Route admin inconnue.", 404);

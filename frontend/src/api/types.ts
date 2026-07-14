@@ -140,6 +140,13 @@ export interface AdminStats {
   cash_collected_net: string;
 }
 
+// Config commission plateforme (GET/PATCH /admin/commission).
+export interface CommissionConfig {
+  commission_rate: number;        // ex: 10 (pour 10%)
+  platform_user_id: string | null; // UUID du wallet dédié, ou null (fallback admin résolveur)
+  has_recipient: boolean;          // false → la commission tombe sur l'admin qui résout
+}
+
 export interface AdminDeposit extends DepositRequest {
   user_id: number;
   user_phone: string;
