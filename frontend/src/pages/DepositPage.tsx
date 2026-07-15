@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, apiErrorMessage } from "../api/client";
+import { useAuth } from "../store/auth";
 import type { DepositRequest, MobileMoneyInfo, Operator } from "../api/types";
 import { Badge, Spinner } from "../components/ui";
 import { cx, dateFr, mga } from "../lib/format";
@@ -11,6 +12,7 @@ const OPERATORS: { key: Operator; label: string }[] = [
 ];
 
 export default function DepositPage() {
+  const { user } = useAuth();
   const [info, setInfo] = useState<MobileMoneyInfo | null>(null);
   const [deposits, setDeposits] = useState<DepositRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,9 +23,10 @@ export default function DepositPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
-  // Déclaration (après transfert réel)
+  // Déclaration (après transfert réel). Le n° expéditeur est pré-rempli avec
+  // le numéro d'inscription du joueur : le transfert DOIT venir du même numéro.
   const [declared, setDeclared] = useState<{ [id: number]: boolean }>({});
-  const [sender, setSender] = useState("");
+  const [sender, setSender] = useState(user?.phone ?? "");
   const [smsRef, setSmsRef] = useState("");
 
   function load() {
@@ -201,12 +204,19 @@ export default function DepositPage() {
 
             {declared[d.id] && (
               <div className="space-y-2 border-t border-zinc-200 pt-3">
-                <input
-                  className="input text-xs"
-                  placeholder="Votre n° expéditeur"
-                  value={sender}
-                  onChange={(e) => setSender(e.target.value)}
-                />
+                <div>
+                  <label className="label text-[10px]">N° expéditeur (votre n° inscrit)</label>
+                  <input
+                    className="input text-xs bg-zinc-50"
+                    inputMode="tel"
+                    value={sender}
+                    onChange={(e) => setSender(e.target.value)}
+                  />
+                  <p className="mt-1 text-[10px] font-medium text-amber-600 leading-relaxed">
+                    ⚠️ Le transfert doit provenir de votre numéro d'inscription.
+                    Un autre numéro sera refusé.
+                  </p>
+                </div>
                 <input
                   className="input text-xs"
                   placeholder="Référence SMS opérateur (optionnel)"

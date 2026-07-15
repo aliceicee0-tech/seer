@@ -10,6 +10,14 @@
 // ===========================================================================
 import { corsHeaders, withErrors, json, bad, currentUserId, userClient, adminClient } from "../_shared/client.ts";
 
+/** Normalise un téléphone malgache en forme locale 0XXXXXXXXX (10 chiffres). */
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.startsWith("00261")) return "0" + digits.slice(5);
+  if (digits.startsWith("261")) return "0" + digits.slice(3);
+  return digits;
+}
+
 async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -75,6 +83,20 @@ async function handler(req: Request): Promise<Response> {
       if (e1 || !dep) return bad("Demande introuvable.", 404);
       if (dep.user_id !== uid) return bad("Accès refusé.", 403);
       if (dep.status !== "PENDING") return bad("Demande déjà traitée.", 400);
+
+      // --- Anti-fraude parrainage : le n° expéditeur doit correspondre au ---
+      // --- numéro d'inscription du joueur. Bloque les faux comptes qui     ---
+      // --- tenteraient de rafler le bonus avec un numéro inventé.          ---
+      const { data: profile } = await adminClient()
+        .from("profiles").select("phone").eq("id", uid).single();
+      const expectedPhone = normalizePhone(profile?.phone ?? "");
+      const declaredPhone = normalizePhone(sender_phone);
+      if (!expectedPhone || declaredPhone !== expectedPhone) {
+        return bad(
+          "Le numéro expéditeur doit correspondre à votre numéro d'inscription (" +
+          (expectedPhone ? expectedPhone : "—") + ")."
+        );
+      }
 
       const { data, error } = await adminClient()
         .from("deposit_requests")
