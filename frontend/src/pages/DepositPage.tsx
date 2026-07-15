@@ -5,7 +5,7 @@ import { useAuth } from "../store/auth";
 import type { DepositRequest, MobileMoneyInfo, Operator } from "../api/types";
 import { Badge, Spinner } from "../components/ui";
 import { cx, dateFr, mga } from "../lib/format";
-import { ArrowLeft, AlertTriangle, CreditCard } from "lucide-react";
+import { ArrowLeft, AlertTriangle, CreditCard, Copy, Check } from "lucide-react";
 
 const OPERATORS: { key: Operator; label: string }[] = [
   { key: "MVOLA", label: "MVola" },
@@ -28,6 +28,7 @@ export default function DepositPage() {
   const [declared, setDeclared] = useState<{ [id: number]: boolean }>({});
   const [sender, setSender] = useState(user?.phone ?? "");
   const [smsRef, setSmsRef] = useState("");
+  const [copiedCode, setCopiedCode] = useState(false);
 
   function load() {
     Promise.all([api.mobileMoney(), api.deposits()])
@@ -140,27 +141,69 @@ export default function DepositPage() {
         {error && <p className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-2 rounded-xl">{error}</p>}
       </div>
 
-      {/* Instructions */}
-      <div className="card space-y-3.5 text-xs">
-        <h2 className="text-xs font-black uppercase tracking-wider text-zinc-400">2. Effectuez le transfert</h2>
-        <p className="text-zinc-400 leading-relaxed">
-          Envoyez votre montant vers le numéro officiel de Nexus, puis déclarez
-          votre transaction ci-dessous.
-        </p>
+      {/* Instructions de transfert concrètes */}
+      <div className="card space-y-4 text-xs">
+        <h2 className="text-xs font-black uppercase tracking-wider text-zinc-400">2. Envoyez l'argent via MVola</h2>
+
+        {/* Coordonnées du destinataire */}
         <div className="rounded-xl bg-zinc-50/80 border border-zinc-200 p-4 space-y-2">
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-550">Destinataire</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-550">Envoyez à</p>
             <p className="font-bold text-zinc-900">{info.holder}</p>
           </div>
           <div className="border-t border-zinc-200 pt-2">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-550">Numéro {operator}</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-550">Numéro MVola</p>
             <p className="text-lg font-black tracking-wider text-zinc-900">{number}</p>
           </div>
         </div>
+
+        {/* Étapes concrètes */}
+        <ol className="space-y-2.5 text-zinc-700">
+          <Step n={1}>
+            Composez le code ci-dessous sur votre téléphone (il contient le numéro et le montant) :
+          </Step>
+        </ol>
+
+        {/* Code USSD MVola pré-construit, copiable en 1 tap */}
+        {amount && Number(amount) > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <code className="flex-1 rounded-xl bg-zinc-900 px-4 py-3 text-center font-mono text-base font-black tracking-wider text-white">
+                #111*1*2*{number}*{amount}#
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(`#111*1*2*${number}*${amount}#`);
+                  setCopiedCode(true);
+                  setTimeout(() => setCopiedCode(false), 2000);
+                }}
+                className="btn-secondary !px-3"
+                title="Copier le code"
+              >
+                {copiedCode ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-center text-[10px] font-semibold text-zinc-400">
+              {copiedCode ? "✓ Code copié — collez-le dans votre téléphone" : "Touchez pour copier le code"}
+            </p>
+          </div>
+        )}
+
+        <ol className="space-y-2.5 text-zinc-700" start={2}>
+          <Step n={2}>Confirmez avec votre code secret MVola.</Step>
+          <Step n={3}>
+            Une fois le transfert réussi, vous recevez un <b>SMS de confirmation</b> avec une référence.
+          </Step>
+          <Step n={4}>
+            Revenez ici et cliquez sur <b>« Déclarer le transfert »</b> en saisissant la référence SMS.
+          </Step>
+        </ol>
+
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-amber-850 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
           <p className="leading-relaxed">
-            Incluez précisément le code de référence de votre demande dans le motif de votre transfert opérateur.
+            Le transfert <b>doit provenir du numéro avec lequel vous êtes inscrit</b> ({user?.phone}).
+            Un transfert depuis un autre numéro sera refusé.
           </p>
         </div>
       </div>
@@ -238,5 +281,16 @@ export default function DepositPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+function Step({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-2.5">
+      <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full bg-blue-100 text-[10px] font-black text-blue-600">
+        {n}
+      </span>
+      <span className="leading-relaxed">{children}</span>
+    </li>
   );
 }
