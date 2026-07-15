@@ -128,9 +128,12 @@ export default function AdminDepositsPage() {
                       Rejeter
                     </button>
                     <button
-                      disabled={busyId === d.id}
+                      // Ceinture+bretelles : on ne peut pas approuver un dépôt
+                      // non déclaré (pas de n° expéditeur = pas de transfert confirmé).
+                      disabled={busyId === d.id || !d.sender_phone}
                       onClick={() => act(d, "approve")}
-                      className="btn bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
+                      className="btn bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wider disabled:opacity-40"
+                      title={!d.sender_phone ? "Dépôt non déclaré par le joueur" : undefined}
                     >
                       Approuver
                     </button>

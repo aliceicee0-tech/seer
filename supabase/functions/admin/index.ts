@@ -72,6 +72,12 @@ async function handler(req: Request): Promise<Response> {
       const status = url.searchParams.get("status");
       let q = admin.from("v_admin_deposits")
         .select("*")
+        // N'afficher QUE les dépôts déclarés par le joueur (sender_phone renseigné).
+        // Les brouillons non déclarés ne sont pas actionnables : le joueur n'a
+        // pas encore confirmé le transfert, donc rien à valider. On les masque
+        // pour éviter à l'admin d'approuver un dépôt fantôme par erreur.
+        .not("sender_phone", "is", null)
+        .neq("sender_phone", "")
         .order("status", { ascending: true })
         .order("created_at", { ascending: false });
       if (status) q = q.eq("status", status);
