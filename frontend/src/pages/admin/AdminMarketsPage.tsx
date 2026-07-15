@@ -13,6 +13,14 @@ type ConfirmState =
   | { kind: "delete"; market: Market }
   | null;
 
+type MarketFilter = "active" | "resolved" | "all";
+
+const MARKET_FILTERS: { key: MarketFilter; label: string }[] = [
+  { key: "active", label: "Actifs" },
+  { key: "resolved", label: "Résolus" },
+  { key: "all", label: "Tous" },
+];
+
 export default function AdminMarketsPage() {
   const [items, setItems] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,11 +29,17 @@ export default function AdminMarketsPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState>(null);
+  const [filter, setFilter] = useState<MarketFilter>("active");
 
   const load = useCallback(() => {
     setLoading(true);
-    api.admin.markets().then((r) => setItems(r.results)).finally(() => setLoading(false));
-  }, []);
+    // Mappe le filtre UI → paramètre status de l'API.
+    const statusParam =
+      filter === "active" ? undefined
+      : filter === "resolved" ? "RESOLVED"
+      : "all";
+    api.admin.markets(statusParam ? { status: statusParam } : {}).then((r) => setItems(r.results)).finally(() => setLoading(false));
+  }, [filter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -96,6 +110,27 @@ export default function AdminMarketsPage() {
         </div>
       )}
 
+      {/* Filtre : Actifs (par défaut) / Résolus / Tous */}
+      <div className="flex gap-1 overflow-x-auto rounded-xl bg-zinc-100 border border-zinc-200 p-1">
+        {MARKET_FILTERS.map((f) => {
+          const active = filter === f.key;
+          return (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={cx(
+                "whitespace-nowrap rounded-lg px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition border border-transparent",
+                active
+                  ? "bg-white text-zinc-900 border-zinc-200 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-800"
+              )}
+            >
+              {f.label}
+            </button>
+          );
+        })}
+      </div>
+
       {loading ? (
         <Spinner />
       ) : items.length === 0 ? (
@@ -162,7 +197,7 @@ export default function AdminMarketsPage() {
                     Annuler
                   </button>
                 )}
-                {(m.status === "DRAFT" || m.status === "CANCELLED" || m.status === "RESOLVED") && (
+                {(m.status === "DRAFT") && (
                   <button
                     disabled={busyId === m.id}
                     onClick={() => setConfirm({ kind: "delete", market: m })}

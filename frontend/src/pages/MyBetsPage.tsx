@@ -42,8 +42,18 @@ function BetCard({ b }: { b: Bet }) {
   const lost = b.status === "LOST";
   const refunded = b.status === "REFUNDED";
 
+  // Résultat officiel du marché (si résolu). Sert à montrer au joueur contre
+  // quoi il a joué et s'il avait raison. Indéfini tant que non résolu.
+  const marketResolved = b.market_outcome === "YES" || b.market_outcome === "NO";
+  const playerGuessedRight = marketResolved && b.outcome === b.market_outcome;
+  const marketStillExists = b.market_status !== undefined && b.market_status !== null;
+
   return (
-    <Link to={`/markets/${b.market_id}`} className="block">
+    <Link
+      to={marketStillExists ? `/markets/${b.market_id}` : "#"}
+      onClick={(e) => { if (!marketStillExists) e.preventDefault(); }}
+      className="block"
+    >
       <div className="card hover:border-zinc-300 hover:bg-zinc-50/50">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -60,6 +70,19 @@ function BetCard({ b }: { b: Bet }) {
         <p className="line-clamp-2 text-sm font-bold text-zinc-900 leading-snug">
           {b.market_question}
         </p>
+
+        {/* Résultat officiel du marché */}
+        {marketResolved && (
+          <p className="mt-2 text-[11px] font-semibold leading-relaxed">
+            <span className="text-zinc-500">Résultat : </span>
+            <span className={playerGuessedRight ? "text-emerald-600" : "text-rose-500"}>
+              {b.market_outcome === "YES" ? "OUI" : "NON"}
+            </span>
+            <span className="text-zinc-400">
+              {" "}· {playerGuessedRight ? "vous aviez raison ✓" : "vous aviez tort ✗"}
+            </span>
+          </p>
+        )}
 
         <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-2.5">
           <span className="text-xs font-semibold text-zinc-500">

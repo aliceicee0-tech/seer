@@ -141,12 +141,18 @@ async function handler(req: Request): Promise<Response> {
     if (req.method === "GET") {
       const status = url.searchParams.get("status");
       const category = url.searchParams.get("category");
-      // Liste admin = TOUS marchés (y compris DRAFT). v_markets les inclut.
+      // Liste admin : par défaut on masque les marchés RESOLVED/CANCELLED/FROZEN
+      // pour ne pas encombrer la vue. L'admin peut les voir avec ?status=all ou
+      // un statut précis (ex: ?status=RESOLVED).
       let q = admin.from("v_markets")
         .select("*")
         .order("is_featured", { ascending: false })
         .order("bet_close_at", { ascending: false });
-      if (status) q = q.eq("status", status);
+      if (status && status !== "all") {
+        q = q.eq("status", status);
+      } else if (!status) {
+        q = q.in("status", ["DRAFT", "OPEN", "LOCKED", "RESOLVING"]);
+      }
       if (category) q = q.eq("category", category);
       const { data, error } = await q;
       if (error) return bad("Erreur lecture.", 500);
