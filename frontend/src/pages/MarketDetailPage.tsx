@@ -320,9 +320,14 @@ function BetPanel({
 }
 
 // --------------------------------------------------------------------------
-// Résultat (marché résolu)
+// Bandeau selon l'état du marché fermé :
+//   CANCELLED → annulé (remboursement)
+//   FROZEN    → gelé (anomalie comptable)
+//   LOCKED / RESOLVING → paris clos, résultat NON ENCORE DÉCIDÉ par l'admin
+//   RESOLVED  → résultat officiel OUI/NON
 // --------------------------------------------------------------------------
 function ResultBanner({ market }: { market: Market }) {
+  // Marché annulé : les paris sont remboursés.
   if (market.status === "CANCELLED") {
     return (
       <div className="card text-center">
@@ -330,10 +335,33 @@ function ResultBanner({ market }: { market: Market }) {
       </div>
     );
   }
+
+  // Marché gelé (anomalie d'invariant comptable, vérifié par verify_invariants).
+  if (market.status === "FROZEN") {
+    return (
+      <div className="card text-center">
+        <p className="text-sm font-bold text-rose-600">⚠️ Marché gelé (anomalie technique en cours de traitement).</p>
+      </div>
+    );
+  }
+
+  // Paris clos mais résultat pas encore donné par l'admin : on n'affiche PAS
+  // de faux résultat. outcome est encore null à ce stade.
+  if (market.status === "LOCKED" || market.status === "RESOLVING" || market.outcome === undefined || market.outcome === null) {
+    return (
+      <div className="card text-center space-y-1.5 bg-amber-50/60 border-amber-200">
+        <p className="text-2xl">🔒</p>
+        <p className="text-sm font-black text-amber-700 uppercase tracking-wider">Paris clos</p>
+        <p className="text-xs font-semibold text-amber-600/80">Résultat en attente de validation</p>
+      </div>
+    );
+  }
+
+  // Résultat officiel : market.outcome est maintenant défini (YES ou NO).
   const won = market.outcome;
   return (
     <div className={cx("card text-center space-y-1", won === "YES" ? "bg-blue-50" : "bg-rose-50")}>
-      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Résultat</p>
+      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Résultat officiel</p>
       <p className={cx("text-2xl font-black font-display", won === "YES" ? "text-blue-600" : "text-rose-600")}>
         {won === "YES" ? "OUI" : "NON"}
       </p>
